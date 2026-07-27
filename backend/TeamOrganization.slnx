@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="TeamOrganization.Api/TeamOrganization.Api.csproj" />
+  <Project Path="TeamOrganization.Application/TeamOrganization.Application.csproj" />
+  <Project Path="TeamOrganization.Domain/TeamOrganization.Domain.csproj" />
+  <Project Path="TeamOrganization.Infrastructure/TeamOrganization.Infrastructure.csproj" />
+</Solution>
