@@ -1,0 +1,28 @@
+2026-07-28 21:46:45.853 +07:00 [INF] Now listening on: http://localhost:5212
+2026-07-28 21:46:45.983 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-07-28 21:46:45.986 +07:00 [INF] Hosting environment: Development
+2026-07-28 21:46:45.988 +07:00 [INF] Content root path: /home/nhan/Workspace/team-platform/team-organization/backend/TeamOrganization.Api
+2026-07-28 21:47:24.901 +07:00 [INF] Application is shutting down...
+2026-07-28 21:47:37.758 +07:00 [INF] Now listening on: http://localhost:5000
+2026-07-28 21:47:37.954 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-07-28 21:47:37.956 +07:00 [INF] Hosting environment: Development
+2026-07-28 21:47:37.958 +07:00 [INF] Content root path: /home/nhan/Workspace/team-platform/team-organization/backend/TeamOrganization.Api
+2026-07-28 21:48:53.185 +07:00 [INF] Application is shutting down...
+2026-07-28 21:51:21.959 +07:00 [INF] Now listening on: http://localhost:5000
+2026-07-28 21:51:22.074 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-07-28 21:51:22.075 +07:00 [INF] Hosting environment: Development
+2026-07-28 21:51:22.075 +07:00 [INF] Content root path: /home/nhan/Workspace/team-platform/team-organization/backend/TeamOrganization.Api
+2026-07-28 22:00:58.010 +07:00 [INF] Application is shutting down...
+2026-07-28 22:02:54.558 +07:00 [INF] Now listening on: http://localhost:5000
+2026-07-28 22:02:54.675 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-07-28 22:02:54.676 +07:00 [INF] Hosting environment: Development
+2026-07-28 22:02:54.676 +07:00 [INF] Content root path: /home/nhan/Workspace/team-platform/team-organization/backend/TeamOrganization.Api
+2026-07-28 22:03:56.007 +07:00 [INF] HTTP GET /api/health-check responded 200 in 23.8487 ms
+2026-07-28 22:03:58.843 +07:00 [INF] HTTP GET /api/health-check responded 200 in 1.9130 ms
+2026-07-28 22:03:59.003 +07:00 [INF] HTTP GET /api/health-check responded 200 in 3.2463 ms
+2026-07-28 22:03:59.243 +07:00 [INF] HTTP GET /api/health-check responded 200 in 0.2543 ms
+2026-07-28 22:03:59.441 +07:00 [INF] HTTP GET /api/health-check responded 200 in 0.2846 ms
+2026-07-28 22:03:59.595 +07:00 [INF] HTTP GET /api/health-check responded 200 in 0.7857 ms
+2026-07-28 22:03:59.766 +07:00 [INF] HTTP GET /api/health-check responded 200 in 0.3225 ms
+2026-07-28 22:03:59.964 +07:00 [INF] HTTP GET /api/health-check responded 200 in 0.3188 ms
+2026-07-28 22:04:06.579 +07:00 [INF] Application is shutting down...
