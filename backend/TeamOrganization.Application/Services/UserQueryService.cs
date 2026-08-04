@@ -1,4 +1,4 @@
-using TeamOrganization.Application.Interfaces.Services;
+using TeamOrganization.Application.Interfaces.Services.Users;
 
 namespace TeamOrganization.Application.Services;
 

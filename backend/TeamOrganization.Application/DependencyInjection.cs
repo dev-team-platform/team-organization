@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
-using TeamOrganization.Application.Interfaces.Services;
+using TeamOrganization.Application.Interfaces.Services.Users;
 using TeamOrganization.Application.Services;
 
-namespace TeamOrganization.Infrastructure;
+namespace TeamOrganization.Application;
 
 public static class DependencyInjection
 {

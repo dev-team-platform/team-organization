@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using TeamOrganization.Application.Interfaces.Services;
+using TeamOrganization.Application.Interfaces.Services.Users;
 
 namespace TeamOrganization.Api.Controllers.V1;
 
