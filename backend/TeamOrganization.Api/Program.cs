@@ -1,43 +1,46 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.OpenApi;
 using Serilog;
+using TeamOrganization.Api.Extensions;
+using TeamOrganization.Api.Middlewares;
+using TeamOrganization.Application;
 using TeamOrganization.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var isDeployedEnvironment =
+    builder.Environment.IsEnvironment("Dev")
+    || builder.Environment.IsEnvironment("Test")
+    || builder.Environment.IsStaging()
+    || builder.Environment.IsProduction();
+
+var exposeApiDocs =
+    builder.Environment.IsDevelopment()
+    || builder.Environment.IsEnvironment("Dev")
+    || builder.Environment.IsEnvironment("Test");
+
+builder.Services.AddAppOptions(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddAuthorization();
 
-builder.Services.AddControllers();
+builder.Services.AddAppAntiforgery(builder.Configuration);
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
 
-builder.Services.AddOpenApi();
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
 
-    // Use 1 in 4 ways to set version
-    options.ApiVersionReader = ApiVersionReader.Combine(
-        // 1. Query string
-        // GET /api/products?api-version=1.0
-        new QueryStringApiVersionReader("api-version"),
-
-        // 2. Header
-        // GET /api/products
-        // Header: X-Version: 1.0
-        new HeaderApiVersionReader("X-Version"),
-
-        // 3. Media type (content negotiation)
-        // GET /api/products
-        // Header: Accept: application/json;ver=1.0
-        new MediaTypeApiVersionReader("ver"),
-
-        // 4. URL segment
-        // GET /api/v1/products
-        new UrlSegmentApiVersionReader()
-    );
+    options.ApiVersionReader =
+        new UrlSegmentApiVersionReader();
 });
 
 builder.Services.AddVersionedApiExplorer(options =>
@@ -46,12 +49,21 @@ builder.Services.AddVersionedApiExplorer(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
+        if (allowedOrigins.Length == 0)
+        {
+            return;
+        }
+
         policy
-            .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!)
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -62,7 +74,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Simple E-Commerce API",
+        Title = "Team Organization API",
         Version = "v1"
     });
 });
@@ -74,17 +86,51 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .ReadFrom.Services(services);
 });
 
+if (isDeployedEnvironment)
+{
+    var trustedNetworks = builder.Configuration
+        .GetSection("ReverseProxy:TrustedNetworks")
+        .Get<string[]>()
+        ?? [];
+
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders =
+            ForwardedHeaders.XForwardedFor
+            | ForwardedHeaders.XForwardedProto
+            | ForwardedHeaders.XForwardedHost;
+
+        foreach (var network in trustedNetworks)
+        {
+            options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+        }
+    });
+}
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (isDeployedEnvironment)
 {
-    app.MapOpenApi();
+    app.UseForwardedHeaders();
+}
+
+app.UseSerilogRequestLogging();
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+if (isDeployedEnvironment)
+{
+    app.UseHttpsRedirection();
+}
+
+if (exposeApiDocs)
+{
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseSerilogRequestLogging();
+app.UseRouting();
+
+app.UseCors("DefaultCors");
 
 app.UseAuthentication();
 app.UseAuthorization();
