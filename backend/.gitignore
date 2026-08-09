@@ -2,6 +2,7 @@
 *.sln.iml
 
 Logs/
+logs/
 
 .vscode/
 
