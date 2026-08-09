@@ -2,7 +2,7 @@ namespace TeamOrganization.Infrastructure.Options;
 
 public class AppAntiforgeryOptions
 {
-    public const string SectionName = "AntiforgeryOptions";
+    public const string SectionName = "Antiforgery";
     public string HeaderName { get; set; } = null!;
     public string CookieName { get; set; } = null!;
     public string RequestTokenCookieName { get; set; } = null!;

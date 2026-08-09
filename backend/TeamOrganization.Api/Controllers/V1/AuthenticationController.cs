@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using TeamOrganization.Api.Authentication;
@@ -10,16 +11,23 @@ namespace TeamOrganization.Api.Controllers.V1;
 [Route("api/v{version:apiVersion}/auth")]
 [ApiVersion("1.0")]
 [ApiController]
-public sealed class AuthenticationController : ControllerBase
+public class AuthenticationController : ControllerBase
 {
+    private readonly Serilog.ILogger _logger;
     private readonly IAntiforgery _antiforgery;
     private readonly IOptions<AppAntiforgeryOptions> _antiforgeryOptions;
+    private readonly IConfiguration _configuration;
 
-    public AuthenticationController(IAntiforgery antiforgery,
-        IOptions<AppAntiforgeryOptions> antiforgeryOptions)
+    public AuthenticationController(
+        Serilog.ILogger logger,
+        IAntiforgery antiforgery,
+        IOptions<AppAntiforgeryOptions> antiforgeryOptions,
+        IConfiguration configuration)
     {
+        _logger = logger;
         _antiforgery = antiforgery;
         _antiforgeryOptions = antiforgeryOptions;
+        _configuration = configuration;
     }
 
     [HttpGet("login")]
@@ -31,12 +39,19 @@ public sealed class AuthenticationController : ControllerBase
 
         var properties = new AuthenticationProperties
         {
-            RedirectUri = safeReturnUrl
+            RedirectUri = $"{_configuration["FrontendBaseUrl"]!.TrimEnd('/')}{safeReturnUrl}"
         };
 
         return Challenge(properties, AuthenticationSchemes.Keycloak);
     }
 
+    [HttpGet("access-denied")]
+    public IActionResult AccessDenied()
+    {
+        return Forbid();
+    }
+
+    [Authorize]
     [HttpGet("csrf")]
     public IActionResult GetCsrfToken()
     {

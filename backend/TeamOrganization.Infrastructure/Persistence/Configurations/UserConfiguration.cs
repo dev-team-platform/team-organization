@@ -21,10 +21,20 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(255);
 
+        builder.Property(x => x.EmployeeCode)
+            .HasColumnName("employee_code")
+            .IsRequired()
+            .HasMaxLength(10);
+
         builder.Property(x => x.Email)
             .HasColumnName("email")
             .IsRequired()
             .HasMaxLength(255);
+
+        builder.Property(x => x.Username)
+            .HasColumnName("username")
+            .IsRequired()
+            .HasMaxLength(100);
 
         builder.Property(x => x.FirstName)
             .HasColumnName("first_name")
@@ -33,7 +43,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.LastName)
             .HasColumnName("last_name")
-            .IsRequired()
             .HasMaxLength(100);
 
         builder.Property(x => x.DisplayName)
@@ -41,50 +50,33 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(200);
 
-        builder.Property(x => x.EmployeeCode)
-            .HasColumnName("employee_code")
-            .IsRequired()
-            .HasMaxLength(10);
-
         builder.Property(x => x.AvatarUrl)
             .HasColumnName("avatar_url");
 
-        builder.Property(x => x.IsDeleted)
-            .HasColumnName("is_deleted");
+        builder.Property(x => x.Status)
+            .HasColumnName("status")
+            .HasConversion<string>()
+            .IsRequired()
+            .HasMaxLength(50);
 
-        builder.Property(x => x.DeletedAt)
-            .HasColumnName("deleted_at");
+        builder.Property(x => x.LastLoginAt)
+            .HasColumnName("last_login_at");
 
-        builder.Property(x => x.CreatedAt)
-            .HasColumnName("created_at")
-            .IsRequired();
+        builder.Property(x => x.LastLogoutAt)
+            .HasColumnName("last_logout_at");
 
-        builder.Property(x => x.CreatedById)
-            .HasColumnName("created_by_id")
-            .IsRequired();
-
-        builder.Property(x => x.UpdatedAt)
-            .HasColumnName("updated_at")
-            .IsRequired();
-
-        builder.Property(x => x.UpdatedById)
-            .HasColumnName("updated_by_id")
-            .IsRequired();
+        builder.HasIndex(x => x.IdentitySubject)
+            .IsUnique();
 
         builder.HasIndex(x => x.Email)
+            .IsUnique();
+
+        builder.HasIndex(x => x.Username)
             .IsUnique();
 
         builder.HasIndex(x => x.EmployeeCode)
             .IsUnique();
 
-        builder.HasOne(x => x.CreatedBy)
-            .WithMany()
-            .HasForeignKey(x => x.CreatedById)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(x => x.UpdatedBy)
-            .WithMany()
-            .HasForeignKey(x => x.UpdatedById)
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.DisplayName);
     }
 }

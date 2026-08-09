@@ -2,7 +2,7 @@ namespace TeamOrganization.Infrastructure.Options;
 
 public class KeycloakOptions
 {
-    public const string SectionName = "KeycloakOptions";
+    public const string SectionName = "Authentication:Keycloak";
 
     public string Authority { get; set; } = null!;
 
@@ -10,7 +10,7 @@ public class KeycloakOptions
 
     public string ClientSecret { get; set; } = null!;
 
-    public string CallbackPath { get; set; } = "/signin-oidc";
+    public string CallbackPath { get; set; } = null!;
 
-    public string SignedOutCallbackPath { get; set; } = "/signout-callback-oidc";
+    public string SignedOutCallbackPath { get; set; } = null!;
 }

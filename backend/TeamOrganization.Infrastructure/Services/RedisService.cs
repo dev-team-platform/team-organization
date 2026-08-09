@@ -6,8 +6,7 @@ namespace TeamOrganization.Infrastructure.Services;
 
 public class RedisService : ICacheService
 {
-    private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IDatabase _database;
 
@@ -38,10 +37,10 @@ public class RedisService : ICacheService
     }
 
     public async Task SetAsync<T>(
-    string key,
-    T value,
-    TimeSpan? expiration = null,
-    CancellationToken cancellationToken = default)
+        string key,
+        T value,
+        TimeSpan? expiration = null,
+        CancellationToken cancellationToken = default)
     {
         ValidateKey(key);
         ArgumentNullException.ThrowIfNull(value);

@@ -1,13 +1,15 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using TeamOrganization.Application.Interfaces.Services.Users;
-using TeamOrganization.Application.Services;
+using TeamOrganization.Application.Services.Users;
 
 namespace TeamOrganization.Application;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddApplication(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddScoped<IUserQueryService, UserQueryService>();
         services.AddScoped<IUserCommandService, UserCommandService>();

@@ -3,12 +3,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
+using TeamOrganization.Application.Interfaces.Contexts;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Application.Interfaces.Services.Cache;
+using TeamOrganization.Infrastructure.Contexts;
 using TeamOrganization.Infrastructure.Options;
 using TeamOrganization.Infrastructure.Persistence;
 using TeamOrganization.Infrastructure.Repositories;
 using TeamOrganization.Infrastructure.Services;
+using TeamOrganization.Infrastructure.Stores;
 
 namespace TeamOrganization.Infrastructure;
 
@@ -36,6 +39,12 @@ public static class DependencyInjection
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.ClientSecret),
                 "Keycloak ClientSecret is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.CallbackPath),
+                "Keycloak CallbackPath is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.SignedOutCallbackPath),
+                "Keycloak SignedOutCallbackPath is required.")
             .ValidateOnStart();
 
         services
@@ -71,14 +80,24 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // Database
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-        services.AddDbContext<AppDbContext>((options) =>
+        services.AddSingleton<AuditSaveChangesInterceptor>();
+
+        services.AddDbContext<AppDbContext>((sp, options) =>
         {
-            options.UseNpgsql(connectionString);
+            var interceptor = sp.GetRequiredService<AuditSaveChangesInterceptor>();
+
+            options
+                .UseNpgsql(connectionString)
+                .AddInterceptors(interceptor);
         });
 
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
+
+        // Cache service
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {
             var redisOptions = sp
@@ -94,9 +113,17 @@ public static class DependencyInjection
 
         services.AddSingleton<ICacheService, RedisService>();
 
-        // Unit of Work
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        // Context
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+
+        // Store
+        services.AddSingleton<RedisTicketStore>();
+
+        // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IUserRoleRepository, UserRoleRepository>();
 
         return services;
     }

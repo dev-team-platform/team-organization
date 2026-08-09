@@ -1,6 +1,6 @@
 using TeamOrganization.Infrastructure.Options;
 
-namespace TeamOrganization.Api.Antiforgery;
+namespace TeamOrganization.Api.Extensions;
 
 public static class AntiforgeryExtensions
 {

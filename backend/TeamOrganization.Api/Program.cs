@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.OpenApi;
 using Serilog;
-using TeamOrganization.Api.Antiforgery;
-using TeamOrganization.Api.Authentication;
+using TeamOrganization.Api.Extensions;
+using TeamOrganization.Api.Middlewares;
 using TeamOrganization.Application;
 using TeamOrganization.Infrastructure;
 
@@ -24,11 +24,11 @@ var exposeApiDocs =
 builder.Services.AddAppOptions(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddKeycloakAuthentication(builder.Configuration);
+builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddAuthorization();
 
 builder.Services.AddAppAntiforgery(builder.Configuration);
-builder.Services.AddControllers(options =>
+builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
 });
@@ -115,6 +115,7 @@ if (isDeployedEnvironment)
 }
 
 app.UseSerilogRequestLogging();
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 if (isDeployedEnvironment)
 {
