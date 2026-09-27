@@ -17,7 +17,6 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
-
     #endregion
 
     public async Task<int> SaveChangesAsync(
@@ -34,6 +33,12 @@ public class AppDbContext : DbContext, IUnitOfWork
         {
             CurrentActorId = null;
         }
+    }
+
+    public async Task<int> SaveChangesWithoutAuditAsync(CancellationToken cancellationToken = default)
+    {
+        CurrentActorId = null;
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -117,6 +122,4 @@ public class AppDbContext : DbContext, IUnitOfWork
         modelBuilder.Entity(entityType)
             .HasQueryFilter(lambda);
     }
-
-
 }

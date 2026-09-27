@@ -82,7 +82,7 @@ public class GlobalExceptionHandlerMiddleware(
                     Details = conflict.Details
                 }),
 
-            UnprocessableException unprocessable =>
+            UnprocessableEntityException unprocessable =>
                 (StatusCodes.Status422UnprocessableEntity,
                 new ErrorResponse
                 {

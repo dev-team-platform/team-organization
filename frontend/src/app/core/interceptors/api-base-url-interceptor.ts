@@ -6,7 +6,12 @@ export const apiBaseUrlInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
-  const baseUrl = environment.apiBaseUrl.replace(/\/+$/, '');
+  let baseUrl = environment.apiBaseUrl.replace(/\/+$/, '');
+
+  if (req.url.startsWith('auth')) {
+    baseUrl = baseUrl.replace(/\/organizations(?=\/|$)/, '');
+  }
+
   const endpoint = req.url.replace(/^\/+/, '');
 
   return next(

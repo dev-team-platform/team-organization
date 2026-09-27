@@ -2,16 +2,18 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 using StackExchange.Redis;
 using TeamOrganization.Application.Interfaces.Contexts;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Application.Interfaces.Services.Cache;
+using TeamOrganization.Application.Interfaces.Services.OutboxEvents;
 using TeamOrganization.Infrastructure.Contexts;
 using TeamOrganization.Infrastructure.Options;
 using TeamOrganization.Infrastructure.Persistence;
 using TeamOrganization.Infrastructure.Repositories;
-using TeamOrganization.Infrastructure.Services;
-using TeamOrganization.Infrastructure.Stores;
+using TeamOrganization.Infrastructure.Services.Cache;
+using TeamOrganization.Infrastructure.Services.OutboxEvent;
 
 namespace TeamOrganization.Infrastructure;
 
@@ -28,52 +30,14 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services
-            .AddOptions<KeycloakOptions>()
-            .BindConfiguration(KeycloakOptions.SectionName)
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.Authority),
-                "Keycloak Authority is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.ClientId),
-                "Keycloak ClientId is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.ClientSecret),
-                "Keycloak ClientSecret is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.CallbackPath),
-                "Keycloak CallbackPath is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.SignedOutCallbackPath),
-                "Keycloak SignedOutCallbackPath is required.")
-            .ValidateOnStart();
-
-        services
-            .AddOptions<AuthCookieOptions>()
-            .BindConfiguration(AuthCookieOptions.SectionName)
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.CookieName),
-                "AuthCookieOptions CookieName is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.SecurePolicy),
-                "AuthCookieOptions SecurePolicy is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.SameSite),
-                "AuthCookieOptions SameSite is required.")
-            .ValidateOnStart();
-
-        services
-            .AddOptions<AppAntiforgeryOptions>()
-            .BindConfiguration(AppAntiforgeryOptions.SectionName)
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.HeaderName),
-                "Antiforgery HeaderName is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.CookieName),
-                "Antiforgery CookieName is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(
-                    options.RequestTokenCookieName),
-                "Antiforgery RequestTokenCookieName is required.")
+            .AddOptions<RabbitMqOptions>()
+            .BindConfiguration(RabbitMqOptions.SectionName)
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Host), "RabbitMq Host is required.")
+            .Validate(options => options.Port is > 0 and <= 65535, "RabbitMq Port must be between 1 and 65535.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Username), "RabbitMq Username is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Password), "RabbitMq Password is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.VirtualHost), "RabbitMq VirtualHost is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.OrganizationEventExchange), "RabbitMq OrganizationEventExchange is required.")
             .ValidateOnStart();
         return services;
     }
@@ -97,6 +61,23 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
+        services.AddSingleton<IConnectionFactory>(sp =>
+        {
+            var rabbitMq = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+            return new ConnectionFactory
+            {
+                HostName = rabbitMq.Host,
+                Port = rabbitMq.Port,
+                UserName = rabbitMq.Username,
+                Password = rabbitMq.Password,
+                VirtualHost = rabbitMq.VirtualHost,
+                AutomaticRecoveryEnabled = true,
+                TopologyRecoveryEnabled = true
+            };
+        });
+        services.AddSingleton<RabbitMqConnection>();
+        services.AddSingleton<IOutboxEventService, OutboxEventService>();
+
         // Cache service
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {
@@ -116,9 +97,6 @@ public static class DependencyInjection
         // Context
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
-
-        // Store
-        services.AddSingleton<RedisTicketStore>();
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();

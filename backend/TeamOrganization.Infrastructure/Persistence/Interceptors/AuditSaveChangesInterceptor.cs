@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using TeamOrganization.Domain.Entities;
 
-namespace TeamOrganization.Infrastructure.Persistence;
+namespace TeamOrganization.Infrastructure.Persistence.Interceptors;
 
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {

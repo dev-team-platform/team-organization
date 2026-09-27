@@ -24,50 +24,24 @@ var exposeApiDocs =
 builder.Services.AddAppOptions(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddKeycloakAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddInternalJwtAuthentication(builder.Configuration);
+builder.Services.AddKeycloakAdminApiAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
-builder.Services.AddAppAntiforgery(builder.Configuration);
-builder.Services.AddControllersWithViews(options =>
-{
-    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
-});
+builder.Services.AddControllers();
 
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
-
-    options.ApiVersionReader =
-        new UrlSegmentApiVersionReader();
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
 });
 
 builder.Services.AddVersionedApiExplorer(options =>
 {
     options.GroupNameFormat = "'v'VVV";
     options.SubstituteApiVersionInUrl = true;
-});
-
-var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
-    .Get<string[]>() ?? [];
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("DefaultCors", policy =>
-    {
-        if (allowedOrigins.Length == 0)
-        {
-            return;
-        }
-
-        policy
-            .WithOrigins(allowedOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
 });
 
 builder.Services.AddSwaggerGen(options =>
@@ -129,8 +103,6 @@ if (exposeApiDocs)
 }
 
 app.UseRouting();
-
-app.UseCors("DefaultCors");
 
 app.UseAuthentication();
 app.UseAuthorization();
