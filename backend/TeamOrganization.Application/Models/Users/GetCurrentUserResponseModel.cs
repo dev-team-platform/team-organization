@@ -3,6 +3,7 @@ namespace TeamOrganization.Application.Models.Users;
 public class GetCurrentUserResponseModel
 {
     public Guid Id { get; set; }
+    public string IdentitySubject { get; set; } = null!;
     public string EmployeeCode { get; set; } = null!;
     public string Username { get; set; } = null!;
     public string Email { get; set; } = null!;

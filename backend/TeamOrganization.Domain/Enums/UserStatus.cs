@@ -2,7 +2,7 @@ namespace TeamOrganization.Domain.Enums;
 
 public enum UserStatus
 {
-    Active,
-    Inactive,
-    Pending
+    Active = 1,
+    Inactive = 2,
+    Pending = 3
 }

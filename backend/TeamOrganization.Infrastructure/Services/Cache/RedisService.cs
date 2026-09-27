@@ -2,7 +2,7 @@ using System.Text.Json;
 using StackExchange.Redis;
 using TeamOrganization.Application.Interfaces.Services.Cache;
 
-namespace TeamOrganization.Infrastructure.Services;
+namespace TeamOrganization.Infrastructure.Services.Cache;
 
 public class RedisService : ICacheService
 {

@@ -15,7 +15,7 @@ export class AuthService {
 
   checkAuthentication(): Observable<boolean> {
     return this.httpClient
-      .get<CurrentUser>('/users/me', {
+      .get<CurrentUser>('users/me', {
         withCredentials: true,
       })
       .pipe(

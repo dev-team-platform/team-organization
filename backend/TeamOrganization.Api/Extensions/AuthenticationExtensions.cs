@@ -1,121 +1,98 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using TeamOrganization.Api.Authentication;
-using TeamOrganization.Application.Interfaces.Services.Users;
-using TeamOrganization.Application.Models.Users;
-using TeamOrganization.Infrastructure.Options;
-using TeamOrganization.Infrastructure.Stores;
+using TeamOrganization.Api.Options;
+using TeamOrganization.Api.Services;
 
 namespace TeamOrganization.Api.Extensions;
 
 public static class AuthenticationExtensions
 {
-    public static IServiceCollection AddKeycloakAuthentication(
+    public static IServiceCollection AddInternalJwtAuthentication(
         this IServiceCollection services,
-        IConfiguration configuration,
-        IWebHostEnvironment environment)
+        IConfiguration configuration)
     {
-        var keycloakSection = configuration
-            .GetSection(KeycloakOptions.SectionName)
-            .Get<KeycloakOptions>() ??
-            throw new InvalidOperationException(
-                "Keycloak configuration section is missing.");
+        services
+            .AddOptions<AuthOptions>()
+            .BindConfiguration(AuthOptions.SectionName)
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.InternalJwt.Issuer),
+                "Auth:InternalJwt:Issuer is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.InternalJwt.Audience),
+                "Auth:InternalJwt:Audience is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.InternalJwt.PublicKeyPemPath),
+                "Auth:InternalJwt:PublicKeyPemPath is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.Authority),
+                "Auth:KeycloakForAdminApi:Authority is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.ClientId),
+                "Auth:KeycloakForAdminApi:ClientId is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.ClientSecret),
+                "Auth:KeycloakForAdminApi:ClientSecret is required.")
+            .ValidateOnStart();
 
-        var authCookieSection = configuration
-            .GetSection(AuthCookieOptions.SectionName)
-            .Get<AuthCookieOptions>() ??
-            throw new InvalidOperationException(
-                "Authentication configuration section is missing.");
+        var authOptions = configuration
+            .GetRequiredSection(AuthOptions.SectionName)
+            .Get<AuthOptions>()!;
 
-        services.AddSingleton<RedisTicketStore>();
+        var publicKeyPem = File.ReadAllText(authOptions.InternalJwt.PublicKeyPemPath);
+
+        var rsa = RSA.Create();
+        rsa.ImportFromPem(publicKeyPem);
+        var signingKey = new RsaSecurityKey(rsa);
 
         services
-            .AddAuthentication(options =>
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
             {
-                options.DefaultAuthenticateScheme = AuthenticationSchemes.ApplicationCookie;
-                options.DefaultSignInScheme = AuthenticationSchemes.ApplicationCookie;
-                options.DefaultChallengeScheme = AuthenticationSchemes.Keycloak;
-            })
-            .AddCookie(
-                AuthenticationSchemes.ApplicationCookie,
-                options =>
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    options.Cookie.Name = authCookieSection.CookieName;
-                    options.Cookie.HttpOnly = authCookieSection.HttpOnly;
-
-                    options.Cookie.SecurePolicy =
-                        Enum.Parse<CookieSecurePolicy>(authCookieSection.SecurePolicy);
-
-                    options.Cookie.SameSite =
-                        Enum.Parse<SameSiteMode>(authCookieSection.SameSite);
-
-                    options.Cookie.Path = authCookieSection.Path;
-                    options.ExpireTimeSpan = authCookieSection.ExpireTimeSpan;
-                    options.SlidingExpiration = authCookieSection.SlidingExpiration;
-
-                    options.LoginPath = "/api/v1/auth/login";
-                    options.AccessDeniedPath = "/api/v1/auth/access-denied";
-                })
-            .AddOpenIdConnect(
-                AuthenticationSchemes.Keycloak,
-                options =>
-                {
-                    options.Authority = keycloakSection.Authority;
-                    options.ClientId = keycloakSection.ClientId;
-                    options.ClientSecret = keycloakSection.ClientSecret;
-                    options.CallbackPath = keycloakSection.CallbackPath;
-                    options.SignedOutCallbackPath = keycloakSection.SignedOutCallbackPath;
-                    options.SignInScheme = AuthenticationSchemes.ApplicationCookie;
-                    options.ResponseType = OpenIdConnectResponseType.Code;
-                    options.UsePkce = true;
-                    options.MapInboundClaims = false;
-                    options.SaveTokens = true;
-                    options.GetClaimsFromUserInfoEndpoint = true;
-                    options.RequireHttpsMetadata = !environment.IsDevelopment();
-
-                    options.Scope.Clear();
-                    options.Scope.Add("openid");
-                    options.Scope.Add("profile");
-                    options.Scope.Add("email");
-
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        NameClaimType = "preferred_username",
-                        RoleClaimType = "roles"
-                    };
-
-                    options.Events = new OpenIdConnectEvents
-                    {
-                        OnTicketReceived = async context =>
-                        {
-                            var userService = context.HttpContext
-                                .RequestServices
-                                .GetRequiredService<IUserCommandService>();
-
-                            var subject = context.Principal?.FindFirst("sub")?.Value;
-
-                            if (!string.IsNullOrWhiteSpace(subject))
-                            {
-                                await userService.UpdateLastLoginAsync(
-                                    new UpdateLastLoginRequestModel
-                                    {
-                                        IdentitySubject = subject,
-                                        LastLoginAt = DateTimeOffset.UtcNow
-                                    },
-                                    context.HttpContext.RequestAborted);
-                            }
-                        }
-                    };
-                });
-
-        services
-            .AddOptions<CookieAuthenticationOptions>(AuthenticationSchemes.ApplicationCookie)
-            .Configure<RedisTicketStore>((options, ticketStore) =>
-            {
-                options.SessionStore = ticketStore;
+                    ValidateIssuer = true,
+                    ValidIssuer = authOptions.InternalJwt.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = authOptions.InternalJwt.Audience,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = signingKey,
+                    ValidateLifetime = true,
+                    RequireExpirationTime = true,
+                    RequireSignedTokens = true,
+                    ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
+                    ClockSkew = TimeSpan.FromMinutes(1),
+                    NameClaimType = "preferred_username",
+                    RoleClaimType = "roles"
+                };
             });
+
+        return services;
+    }
+
+    public static IServiceCollection AddKeycloakAdminApiAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+            .AddOptions<UserManagementOptions>()
+            .BindConfiguration(UserManagementOptions.SectionName)
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.DefaultPassword),
+                "UserManagement:DefaultPassword is required.")
+            .ValidateOnStart();
+
+        var authOptions = configuration
+            .GetRequiredSection(AuthOptions.SectionName)
+            .Get<AuthOptions>()!;
+
+        var authority = authOptions.KeycloakForAdminApi.Authority.TrimEnd('/') + "/";
+
+        services.AddHttpClient(
+            KeycloakService.HttpClientName,
+            client => client.BaseAddress = new Uri(authority, UriKind.Absolute));
+        services.AddSingleton<IKeycloakService, KeycloakService>();
 
         return services;
     }
