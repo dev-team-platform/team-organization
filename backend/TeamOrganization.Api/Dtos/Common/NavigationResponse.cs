@@ -4,12 +4,12 @@ namespace TeamOrganization.Api.Dtos.Common;
 
 public class NavigationResponse
 {
-    public string Id { get; set; } = null!;
+    public Guid Id { get; set; }
     public string Name { get; set; } = null!;
 
-    public static NavigationResponse FromModel(NavigationResponseModel model)
+    public static NavigationResponse? FromModel(NavigationResponseModel? model)
     {
-        return new NavigationResponse
+        return model == null ? null : new NavigationResponse
         {
             Id = model.Id,
             Name = model.Name

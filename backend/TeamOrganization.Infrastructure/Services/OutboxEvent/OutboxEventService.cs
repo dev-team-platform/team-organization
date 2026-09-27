@@ -51,14 +51,14 @@ public sealed class OutboxEventService : IOutboxEventService
                 cancellationToken);
 
             await channel.ExchangeDeclareAsync(
-                _rabbitMqOptions.Value.OrganizationEventExchange,
+                _rabbitMqOptions.Value.EventExchange,
                 ExchangeType.Topic,
                 durable: true,
                 autoDelete: false,
                 cancellationToken: cancellationToken);
 
             await channel.BasicPublishAsync(
-                _rabbitMqOptions.Value.OrganizationEventExchange,
+                _rabbitMqOptions.Value.EventExchange,
                 outboxEvent.RoutingKey,
                 mandatory: true,
                 new BasicProperties

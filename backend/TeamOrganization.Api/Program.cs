@@ -26,6 +26,7 @@ builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddInternalJwtAuthentication(builder.Configuration);
 builder.Services.AddKeycloakAdminApiAuthentication(builder.Configuration);
+builder.Services.AddAppRateLimiter(builder.Configuration);
 builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
@@ -104,9 +105,11 @@ if (exposeApiDocs)
 
 app.UseRouting();
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+

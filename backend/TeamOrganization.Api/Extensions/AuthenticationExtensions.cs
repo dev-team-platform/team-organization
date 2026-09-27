@@ -75,6 +75,14 @@ public static class AuthenticationExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services
+            .AddOptions<UserManagementOptions>()
+            .BindConfiguration(UserManagementOptions.SectionName)
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.DefaultPassword),
+                "UserManagement:DefaultPassword is required.")
+            .ValidateOnStart();
+
         var authOptions = configuration
             .GetRequiredSection(AuthOptions.SectionName)
             .Get<AuthOptions>()!;
@@ -82,9 +90,9 @@ public static class AuthenticationExtensions
         var authority = authOptions.KeycloakForAdminApi.Authority.TrimEnd('/') + "/";
 
         services.AddHttpClient(
-            KeycloakAdminAccessTokenProvider.HttpClientName,
+            KeycloakService.HttpClientName,
             client => client.BaseAddress = new Uri(authority, UriKind.Absolute));
-        services.AddSingleton<IKeycloakAdminAccessTokenProvider, KeycloakAdminAccessTokenProvider>();
+        services.AddSingleton<IKeycloakService, KeycloakService>();
 
         return services;
     }

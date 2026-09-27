@@ -7,9 +7,9 @@ public class SendNotificationEventModel
     public string SourceApp { get; } = "team-organization";
     public required string EventType { get; init; }
     public required Guid CreatedById { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
     public NotificationEventModel? Notification { get; init; }
     public EmailEventModel? Email { get; init; }
-    public required DateTimeOffset CreatedAt { get; init; }
 }
 
 public class NotificationEventModel

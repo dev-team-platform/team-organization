@@ -11,6 +11,7 @@ using TeamOrganization.Application.Interfaces.Services.OutboxEvents;
 using TeamOrganization.Infrastructure.Contexts;
 using TeamOrganization.Infrastructure.Options;
 using TeamOrganization.Infrastructure.Persistence;
+using TeamOrganization.Infrastructure.Persistence.Interceptors;
 using TeamOrganization.Infrastructure.Repositories;
 using TeamOrganization.Infrastructure.Services.Cache;
 using TeamOrganization.Infrastructure.Services.OutboxEvent;
@@ -37,7 +38,7 @@ public static class DependencyInjection
             .Validate(options => !string.IsNullOrWhiteSpace(options.Username), "RabbitMq Username is required.")
             .Validate(options => !string.IsNullOrWhiteSpace(options.Password), "RabbitMq Password is required.")
             .Validate(options => !string.IsNullOrWhiteSpace(options.VirtualHost), "RabbitMq VirtualHost is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.OrganizationEventExchange), "RabbitMq OrganizationEventExchange is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.EventExchange), "RabbitMq EventExchange is required.")
             .ValidateOnStart();
         return services;
     }
