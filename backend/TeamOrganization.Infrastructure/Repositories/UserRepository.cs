@@ -17,22 +17,35 @@ public class UserRepository : GenericRepository<User>, IUserRepository
         string identitySubject,
         CancellationToken cancellationToken = default)
     {
+        var now = DateTimeOffset.UtcNow;
         var query = from u in _dbContext.Set<User>()
-                    where u.IdentitySubject == identitySubject
                     join ur in _dbContext.Set<UserRole>() on u.Id equals ur.UserId
                     join r in _dbContext.Set<Role>() on ur.RoleId equals r.Id
+                    join rp in _dbContext.Set<RolePermission>()
+                        on r.Id equals rp.RoleId into rolePermissions
+                    from rp in rolePermissions
+                        .Where(rolePermission => ur.EffectiveFrom <= now
+                            && (ur.EffectiveTo == null || ur.EffectiveTo > now))
+                        .DefaultIfEmpty()
+                    join p in _dbContext.Set<Permission>()
+                        on rp.PermissionId equals p.Id into permissions
+                    from p in permissions.DefaultIfEmpty()
+                    where u.IdentitySubject == identitySubject
                     select new
                     {
                         User = u,
-                        Role = r,
+                        RoleName = r.DisplayName,
+                        PermissionCode = p == null ? null : p.Code
                     };
 
-        var result = await query.FirstOrDefaultAsync(cancellationToken);
+        var results = await query.ToListAsync(cancellationToken);
 
-        if (result is null)
+        if (results.Count == 0)
         {
             return null;
         }
+
+        var result = results[0];
 
         return new GetCurrentUserResponseModel
         {
@@ -45,9 +58,14 @@ public class UserRepository : GenericRepository<User>, IUserRepository
             DisplayName = result.User.DisplayName,
             AvatarUrl = result.User.AvatarUrl,
             LastLoginAt = result.User.LastLoginAt,
-            LastLogoutAt = result.User.LastLogoutAt,
-            RoleName = result.Role.DisplayName,
-            PermissionCodes = []
+            RoleName = result.RoleName,
+            PermissionCodes =
+            [
+                .. results
+                    .Where(x => x.PermissionCode is not null)
+                    .Select(x => x.PermissionCode!)
+                    .Distinct()
+            ]
         };
     }
 }

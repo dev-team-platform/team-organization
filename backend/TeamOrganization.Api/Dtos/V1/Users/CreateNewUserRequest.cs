@@ -8,5 +8,5 @@ public class CreateNewUserRequest
     public string? LastName { get; set; }
     public string DisplayName { get; set; } = null!;
     public string EmployeeCode { get; set; } = null!;
-    public string RoleId { get; set; } = null!;
+    public string RoleCode { get; set; } = null!;
 }

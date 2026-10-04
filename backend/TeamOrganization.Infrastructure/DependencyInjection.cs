@@ -7,14 +7,20 @@ using StackExchange.Redis;
 using TeamOrganization.Application.Interfaces.Contexts;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Application.Interfaces.Services.Cache;
-using TeamOrganization.Application.Interfaces.Services.OutboxEvents;
+using TeamOrganization.Application.Interfaces.Services.Messaging;
 using TeamOrganization.Infrastructure.Contexts;
 using TeamOrganization.Infrastructure.Options;
 using TeamOrganization.Infrastructure.Persistence;
 using TeamOrganization.Infrastructure.Persistence.Interceptors;
 using TeamOrganization.Infrastructure.Repositories;
 using TeamOrganization.Infrastructure.Services.Cache;
-using TeamOrganization.Infrastructure.Services.OutboxEvent;
+using TeamOrganization.Infrastructure.Services.RabbitMq;
+using TeamOrganization.Application.Interfaces.Services.Audit;
+using TeamOrganization.Infrastructure.Services.Audit;
+using TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
+using TeamOrganization.Application.Models.Messaging.Publishing;
+using TeamOrganization.Infrastructure.Services.RabbitMq.Publishers;
+using TeamOrganization.Infrastructure.Services.RabbitMq.Consumers;
 
 namespace TeamOrganization.Infrastructure;
 
@@ -38,7 +44,16 @@ public static class DependencyInjection
             .Validate(options => !string.IsNullOrWhiteSpace(options.Username), "RabbitMq Username is required.")
             .Validate(options => !string.IsNullOrWhiteSpace(options.Password), "RabbitMq Password is required.")
             .Validate(options => !string.IsNullOrWhiteSpace(options.VirtualHost), "RabbitMq VirtualHost is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.EventExchange), "RabbitMq EventExchange is required.")
+            .ValidateOnStart();
+
+        services
+            .AddOptions<AuditLogOptions>()
+            .BindConfiguration(AuditLogOptions.SectionName)
+            .Validate(options => options.RetryCount >= 0, "AuditLog RetryCount must be greater than or equal to 0.")
+            .Validate(options => options.RetryDelayInMsSeconds != null && options.RetryDelayInMsSeconds.Count == options.RetryCount, "AuditLog RetryDelayInMsSeconds must have the same number of elements as RetryCount.")
+            .Validate(options => options.JitterFromMsSeconds >= 0, "AuditLog JitterFromMsSeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterToMsSeconds >= 0, "AuditLog JitterToMsSeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterFromMsSeconds <= options.JitterToMsSeconds, "AuditLog JitterFromMsSeconds must be less than or equal to JitterToMsSeconds.")
             .ValidateOnStart();
         return services;
     }
@@ -62,6 +77,7 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
+        // RabbitMQ
         services.AddSingleton<IConnectionFactory>(sp =>
         {
             var rabbitMq = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
@@ -77,7 +93,22 @@ public static class DependencyInjection
             };
         });
         services.AddSingleton<RabbitMqConnection>();
-        services.AddSingleton<IOutboxEventService, OutboxEventService>();
+        services.AddSingleton<RabbitMqTopologyInitializer>();
+        services.AddSingleton<RabbitMqPublisherHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<RabbitMqPublisherHostedService>());
+        services.AddHostedService<RabbitMqConsumerHostedService>();
+
+        // Messaging Publishers  
+        services.AddSingleton<
+            IMessagingPublisherHandler<OutboxEvent<SendNotificationEventModel>>,
+            OutboxEventPublisherHandler<SendNotificationEventModel>>();
+
+        // Messaging Consumers    
+        services.AddKeyedScoped<IMessagingConsumerHandler, UserLoggedInConsumer>("UserLoggedIn");
+
+        // Audit Log
+        services.AddSingleton<IAuditLogBackgroundQueue, AuditLogBackgroundQueue>();
+        services.AddHostedService<AuditLogBackgroundService>();
 
         // Cache service
         services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -103,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
         return services;
     }

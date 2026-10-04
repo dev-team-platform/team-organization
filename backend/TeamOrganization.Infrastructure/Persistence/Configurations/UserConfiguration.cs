@@ -62,9 +62,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.LastLoginAt)
             .HasColumnName("last_login_at");
 
-        builder.Property(x => x.LastLogoutAt)
-            .HasColumnName("last_logout_at");
-
         builder.HasIndex(x => x.IdentitySubject)
             .IsUnique();
 

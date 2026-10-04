@@ -5,11 +5,11 @@ using TeamOrganization.Application.Constants.Notifications;
 using TeamOrganization.Application.Interfaces.Contexts;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Application.Interfaces.Services.Cache;
-using TeamOrganization.Application.Interfaces.Services.OutboxEvents;
+using TeamOrganization.Application.Interfaces.Services.Messaging;
 using TeamOrganization.Application.Interfaces.Services.Users;
 using TeamOrganization.Application.Models.Common;
-using TeamOrganization.Application.Models.OutboxEvents;
-using TeamOrganization.Application.Models.OutboxEvents.Notifications;
+using TeamOrganization.Application.Models.Messaging.Publishing;
+using TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
 using TeamOrganization.Application.Models.Users;
 using TeamOrganization.Domain.Entities;
 using TeamOrganization.Domain.Enums;
@@ -26,7 +26,7 @@ public class UserCommandService : IUserCommandService
     private readonly IUserQueryService _userQueryService;
     private readonly ICacheService _cacheService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IOutboxEventService _outboxEventService;
+    private readonly IMessagingPublisherHandler<OutboxEvent<SendNotificationEventModel>> _messagingPublisher;
 
     public UserCommandService(
         Serilog.ILogger logger,
@@ -35,7 +35,7 @@ public class UserCommandService : IUserCommandService
         IUserQueryService userQueryService,
         ICacheService cacheService,
         IUnitOfWork unitOfWork,
-        IOutboxEventService outboxEventService)
+        IMessagingPublisherHandler<OutboxEvent<SendNotificationEventModel>> messagingPublisher)
     {
         _logger = logger;
         _currentUserContext = currentUserContext;
@@ -43,7 +43,7 @@ public class UserCommandService : IUserCommandService
         _userQueryService = userQueryService;
         _cacheService = cacheService;
         _unitOfWork = unitOfWork;
-        _outboxEventService = outboxEventService;
+        _messagingPublisher = messagingPublisher;
     }
 
     public async Task<CreateUserResponseModel> CreateNewUserAsync(CreateUserRequestModel model, CancellationToken cancellationToken = default)
@@ -92,9 +92,9 @@ public class UserCommandService : IUserCommandService
             }
         };
 
-        await _unitOfWork.SaveChangesAsync(creator.Id, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(creator.Id.ToString(), cancellationToken);
 
-        await _outboxEventService.PublishAsync(notificationEvent, cancellationToken);
+        await _messagingPublisher.HandleAsync(notificationEvent, cancellationToken);
 
         return new CreateUserResponseModel
         {
@@ -132,22 +132,7 @@ public class UserCommandService : IUserCommandService
         var currentUserKey = UserCacheKeys.GetCurrentUserKey(model.IdentitySubject);
         await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
 
-        await _unitOfWork.SaveChangesAsync(user.Id, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(user.Id.ToString(), cancellationToken);
     }
 
-    public async Task UpdateLastLogoutAsync(UpdateLastLogoutRequestModel model, CancellationToken cancellationToken = default)
-    {
-        var user = await _userRepository.FindFirstByConditionAsync(
-            q => q.Where(x => x.IdentitySubject == model.IdentitySubject),
-            trackChanges: true,
-            cancellationToken)
-            ?? throw new NotFoundException("User not found");
-
-        user.LastLogoutAt = model.LastLogoutAt;
-
-        var currentUserKey = UserCacheKeys.GetCurrentUserKey(model.IdentitySubject);
-        await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
-
-        await _unitOfWork.SaveChangesAsync(user.Id, cancellationToken);
-    }
 }

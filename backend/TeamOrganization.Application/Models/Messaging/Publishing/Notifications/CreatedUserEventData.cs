@@ -1,6 +1,6 @@
 using TeamOrganization.Domain.Entities;
 
-namespace TeamOrganization.Application.Models.OutboxEvents.Notifications;
+namespace TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
 
 public class CreatedUserEventData
 {

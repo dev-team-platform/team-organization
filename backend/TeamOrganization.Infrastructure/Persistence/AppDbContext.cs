@@ -7,7 +7,7 @@ namespace TeamOrganization.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext, IUnitOfWork
 {
-    internal Guid? CurrentActorId { get; private set; }
+    internal string? CurrentActorId { get; private set; }
 
     public AppDbContext(DbContextOptions options) : base(options)
     {
@@ -17,10 +17,13 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     #endregion
 
     public async Task<int> SaveChangesAsync(
-        Guid actorId,
+        string actorId,
         CancellationToken cancellationToken = default)
     {
         CurrentActorId = actorId;

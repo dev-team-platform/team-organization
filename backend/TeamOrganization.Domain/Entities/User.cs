@@ -14,5 +14,4 @@ public class User : EntityBase
     public string? AvatarUrl { get; set; }
     public UserStatus Status { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
-    public DateTimeOffset? LastLogoutAt { get; set; }
 }

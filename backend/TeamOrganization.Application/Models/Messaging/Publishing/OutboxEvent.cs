@@ -1,4 +1,4 @@
-namespace TeamOrganization.Application.Models.OutboxEvents;
+namespace TeamOrganization.Application.Models.Messaging.Publishing;
 
 public class OutboxEvent<TModel>
 {

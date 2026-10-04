@@ -1,12 +1,13 @@
 using RabbitMQ.Client;
 
-namespace TeamOrganization.Infrastructure.Services.OutboxEvent;
+namespace TeamOrganization.Infrastructure.Services.RabbitMq;
 
 public sealed class RabbitMqConnection : IAsyncDisposable
 {
     private readonly IConnectionFactory _connectionFactory;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private IConnection? _connection;
+    private bool _disposed;
 
     public RabbitMqConnection(IConnectionFactory connectionFactory)
     {
@@ -15,6 +16,8 @@ public sealed class RabbitMqConnection : IAsyncDisposable
 
     public async Task<IConnection> GetConnectionAsync(CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         if (_connection is { IsOpen: true })
         {
             return _connection;
@@ -23,9 +26,17 @@ public sealed class RabbitMqConnection : IAsyncDisposable
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             if (_connection is { IsOpen: true })
             {
                 return _connection;
+            }
+
+            if (_connection is not null)
+            {
+                await _connection.DisposeAsync();
+                _connection = null;
             }
 
             _connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -39,9 +50,26 @@ public sealed class RabbitMqConnection : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_connection is not null)
+        await _lock.WaitAsync();
+
+        try
         {
-            await _connection.DisposeAsync();
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
+            if (_connection is not null)
+            {
+                await _connection.DisposeAsync();
+                _connection = null;
+            }
+        }
+        finally
+        {
+            _lock.Release();
         }
 
         _lock.Dispose();

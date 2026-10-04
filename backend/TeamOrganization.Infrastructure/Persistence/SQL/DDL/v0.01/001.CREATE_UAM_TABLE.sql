@@ -11,7 +11,6 @@ CREATE TABLE users (
     status VARCHAR(50) NOT NULL,
     
     last_login_at TIMESTAMPTZ NULL,
-    last_logout_at TIMESTAMPTZ NULL,
 
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_at TIMESTAMPTZ NULL,

@@ -28,22 +28,8 @@ builder.Services.AddInternalJwtAuthentication(builder.Configuration);
 builder.Services.AddKeycloakAdminApiAuthentication(builder.Configuration);
 builder.Services.AddAppRateLimiter(builder.Configuration);
 builder.Services.AddAuthorization();
-
 builder.Services.AddControllers();
-
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-    options.ApiVersionReader = new UrlSegmentApiVersionReader();
-});
-
-builder.Services.AddVersionedApiExplorer(options =>
-{
-    options.GroupNameFormat = "'v'VVV";
-    options.SubstituteApiVersionInUrl = true;
-});
+builder.Services.AddApiVersioningConfiguration();
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -61,33 +47,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .ReadFrom.Services(services);
 });
 
-if (isDeployedEnvironment)
-{
-    var trustedNetworks = builder.Configuration
-        .GetSection("ReverseProxy:TrustedNetworks")
-        .Get<string[]>()
-        ?? [];
-
-    builder.Services.Configure<ForwardedHeadersOptions>(options =>
-    {
-        options.ForwardedHeaders =
-            ForwardedHeaders.XForwardedFor
-            | ForwardedHeaders.XForwardedProto
-            | ForwardedHeaders.XForwardedHost;
-
-        foreach (var network in trustedNetworks)
-        {
-            options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
-        }
-    });
-}
-
 var app = builder.Build();
-
-if (isDeployedEnvironment)
-{
-    app.UseForwardedHeaders();
-}
 
 app.UseSerilogRequestLogging();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

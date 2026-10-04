@@ -8,4 +8,5 @@ public interface IUserRepository : IGenericRepository<User>
     public Task<GetCurrentUserResponseModel?> FindCurrentUserByIdentitySubjectAsync(
         string identitySubject,
         CancellationToken cancellationToken = default);
+
 }
