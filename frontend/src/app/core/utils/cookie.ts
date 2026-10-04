@@ -1,4 +1,4 @@
-function getCookie(name: string): string | null {
+export function getCookie(name: string): string | null {
   const cookie = document.cookie.split('; ').find((item) => item.startsWith(`${name}=`));
 
   if (!cookie) {

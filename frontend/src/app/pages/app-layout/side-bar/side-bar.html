@@ -5,47 +5,71 @@
         <a
           *appHasAccess="item.hasAccess"
           class="to-side-bar__nav-item"
+          [attr.aria-label]="item.label"
           [routerLink]="item.route"
           routerLinkActive="to-side-bar__nav-item--active"
           [routerLinkActiveOptions]="{ exact: true }"
+          [matTooltip]="item.label"
+          matTooltipClass="to-side-bar__tooltip"
+          [matTooltipDisabled]="!collapsed()"
+          matTooltipPosition="right"
         >
           <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
-          <span>{{ item.label }}</span>
+          @if (!collapsed()) {
+            <span>{{ item.label }}</span>
+          }
         </a>
       } @else {
-        <tp-text-button
-          *appHasAccess="item.hasAccess"
-          class="to-side-bar__nav-item to-side-bar__dropdown-button"
-          color="gray"
-          pressEffectShape="rect"
-          height="48px"
-          [attr.aria-expanded]="isDropdownExpanded(item)"
-          [fullWidth]="true"
-          (onClick)="toggleDropdown(item)"
+        <div
+          class="to-side-bar__dropdown"
+          [class.to-side-bar__dropdown--active]="collapsed() && isDropdownActive(item)"
         >
-          <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
-          <span>{{ item.label }}</span>
-          <span class="material-symbols-outlined to-side-bar__dropdown-icon" aria-hidden="true">
-            {{ isDropdownExpanded(item) ? 'keyboard_arrow_up' : 'keyboard_arrow_down' }}
-          </span>
-        </tp-text-button>
-
-        @if (isDropdownExpanded(item)) {
-          <div class="to-side-bar__children">
-            @for (child of item.children; track child.label) {
-              <a
-                *appHasAccess="item.hasAccess"
-                class="to-side-bar__nav-item to-side-bar__nav-item--child"
-                [routerLink]="child.route"
-                routerLinkActive="to-side-bar__nav-item--active"
-                [routerLinkActiveOptions]="{ exact: true }"
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">{{ child.icon }}</span>
-                <span>{{ child.label }}</span>
-              </a>
+          <tp-text-button
+            *appHasAccess="item.hasAccess"
+            class="to-side-bar__nav-item to-side-bar__dropdown-button"
+            color="gray"
+            pressEffectShape="rect"
+            height="48px"
+            [attr.aria-label]="item.label"
+            [attr.aria-expanded]="!collapsed() && isDropdownExpanded(item)"
+            [fullWidth]="true"
+            [matTooltip]="item.label"
+            matTooltipClass="to-side-bar__tooltip"
+            [matTooltipDisabled]="!collapsed()"
+            matTooltipPosition="right"
+            (onClick)="handleDropdownClick(item)"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+            @if (!collapsed()) {
+              <span>{{ item.label }}</span>
+              <span class="material-symbols-outlined to-side-bar__dropdown-icon" aria-hidden="true">
+                {{ isDropdownExpanded(item) ? 'keyboard_arrow_up' : 'keyboard_arrow_down' }}
+              </span>
             }
-          </div>
-        }
+          </tp-text-button>
+
+          @if (!collapsed() && isDropdownExpanded(item)) {
+            <div class="to-side-bar__children">
+              @for (child of item.children; track child.label) {
+                <a
+                  *appHasAccess="child.hasAccess"
+                  class="to-side-bar__nav-item to-side-bar__nav-item--child"
+                  [attr.aria-label]="child.label"
+                  [routerLink]="child.route"
+                  routerLinkActive="to-side-bar__nav-item--active"
+                  [routerLinkActiveOptions]="{ exact: true }"
+                  [matTooltip]="child.label"
+                  matTooltipClass="to-side-bar__tooltip"
+                  [matTooltipDisabled]="!collapsed()"
+                  matTooltipPosition="right"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">{{ child.icon }}</span>
+                  <span>{{ child.label }}</span>
+                </a>
+              }
+            </div>
+          }
+        </div>
       }
     }
   </nav>

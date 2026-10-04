@@ -1,5 +1,5 @@
-import { Permission } from '../../../enums/permission';
-import { Role } from '../../../enums/role';
+import { Permission } from '../../enums/permission';
+import { Role } from '../../enums/role';
 
 export interface CurrentUser {
   id: string;

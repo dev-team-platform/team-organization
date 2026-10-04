@@ -30,6 +30,7 @@ export const apiBaseUrlInterceptor: HttpInterceptorFn = (req, next) => {
     req.clone({
       url: `${baseUrl}/${endpoint}`,
       headers,
+      withCredentials: true,
     }),
   );
 };

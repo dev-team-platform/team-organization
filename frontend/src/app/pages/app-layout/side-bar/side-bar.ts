@@ -1,9 +1,10 @@
-import { Component, computed, input, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { MatTooltip } from '@angular/material/tooltip';
+import { IsActiveMatchOptions, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { TpTextButton } from '@team-platform/ui';
 import { HasAccess } from '../../../core/directives/has-access';
+import { Role } from '../../../core/enums/role';
 import { CurrentUser } from '../../../core/models/auth/current-user';
-import { Role } from '../../../enums/role';
 
 interface SideBarNavigationItem {
   label: string;
@@ -16,9 +17,9 @@ interface SideBarNavigationItem {
 
 @Component({
   selector: 'app-side-bar',
-  imports: [RouterLink, RouterLinkActive, TpTextButton, HasAccess],
+  imports: [RouterLink, RouterLinkActive, TpTextButton, HasAccess, MatTooltip],
   host: {
-    '[class.tt-side-bar-host--collapsed]': 'collapsed()',
+    '[class.to-side-bar-host--collapsed]': 'collapsed()',
   },
   templateUrl: './side-bar.html',
   styleUrl: './side-bar.scss',
@@ -26,8 +27,16 @@ interface SideBarNavigationItem {
 export class SideBar {
   readonly collapsed = input(false);
   readonly currentUser = input<CurrentUser | null>(null);
+  readonly expandRequested = output<void>();
 
+  private readonly router = inject(Router);
   protected readonly expandedDropdownLabels = signal<ReadonlySet<string>>(new Set());
+  private readonly childRouteMatchOptions: IsActiveMatchOptions = {
+    paths: 'exact',
+    queryParams: 'ignored',
+    fragment: 'ignored',
+    matrixParams: 'ignored',
+  };
 
   protected readonly navigationItems = computed<SideBarNavigationItem[]>(() => [
     {
@@ -72,6 +81,26 @@ export class SideBar {
 
   protected isDropdownExpanded(item: SideBarNavigationItem): boolean {
     return this.expandedDropdownLabels().has(item.label);
+  }
+
+  protected isDropdownActive(item: SideBarNavigationItem): boolean {
+    return item.children.some(
+      (child) =>
+        child.route !== null &&
+        this.router.isActive(this.router.parseUrl(child.route), this.childRouteMatchOptions),
+    );
+  }
+
+  protected handleDropdownClick(item: SideBarNavigationItem): void {
+    if (this.collapsed()) {
+      this.expandedDropdownLabels.update((expandedLabels) =>
+        new Set(expandedLabels).add(item.label),
+      );
+      this.expandRequested.emit();
+      return;
+    }
+
+    this.toggleDropdown(item);
   }
 
   protected toggleDropdown(item: SideBarNavigationItem): void {

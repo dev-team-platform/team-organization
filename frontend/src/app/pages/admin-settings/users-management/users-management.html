@@ -1,1 +1,95 @@
-<p>users-management works!</p>
+<section class="users-management" aria-labelledby="users-title">
+  <header class="users-management__toolbar">
+    <h1 id="users-title" class="users-management__title">Users</h1>
+
+    <div class="users-management__actions">
+      <tp-search-bar
+        class="users-management__search"
+        placeholder="Search users"
+        ariaLabel="Search users"
+        maxWidth="360px"
+        [searchAfter]="0"
+        (onSearch)="onGlobalSearch($event)"
+      ></tp-search-bar>
+
+      <tp-button
+        class="users-management__action-button"
+        color="blue"
+        variant="filled"
+        height="36px"
+        tooltipTitle="Create users (coming soon)"
+      >
+        <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
+        <span>New User</span>
+      </tp-button>
+
+      <tp-button
+        class="users-management__action-button"
+        color="blue"
+        variant="filled"
+        height="36px"
+        tooltipTitle="Export users to Excel (coming soon)"
+      >
+        <span class="tp-icon material-symbols-outlined" aria-hidden="true">download</span>
+        <span>Export</span>
+      </tp-button>
+    </div>
+  </header>
+
+  @if (loadError(); as error) {
+    <p class="users-management__error" role="alert">{{ error }}</p>
+  }
+
+  <tp-table
+    class="users-management__table"
+    [data]="tableData()"
+    [config]="tableConfig()"
+    [state]="tableState()"
+    (onPaginationChange)="onPaginationChange($event)"
+    (onSortChange)="onSortChange($event)"
+    (onReload)="reloadUsers()"
+  >
+    <ng-template tpTableFilter let-key="key">
+      @switch (key) {
+        @case ('status') {
+          <tp-input-autocomplete-multiselect
+            [placeholder]="columnTitle(key)"
+            ariaLabel="Filter by status"
+            [options]="statusOptions"
+            [useSelectAll]="false"
+            [maxChips]="1"
+            [value]="statusFilters()"
+            (valueChange)="onStatusFilterChange($event)"
+          ></tp-input-autocomplete-multiselect>
+        }
+        @case ('lastLoginAt') {
+          <tp-input-date-picker
+            title="Last login date"
+            [placeholder]="columnTitle(key)"
+            dateFormat="yyyy-MM-dd"
+            [value]="lastLoginDateFilter()"
+            (valueChange)="onLastLoginDateChange($event)"
+          ></tp-input-date-picker>
+        }
+        @default {
+          <tp-input
+            class="users-management__column-filter"
+            [placeholder]="columnTitle(key)"
+            [value]="textFilterValue(key)"
+            (valueChange)="onTextFilterChange(key, $event)"
+          ></tp-input>
+        }
+      }
+    </ng-template>
+
+    <ng-template tpTableCell="status" let-user>
+      @if (user['status'] === 'Active') {
+        <tp-chip color="green" size="sm" variant="outlined">ACTIVE</tp-chip>
+      } @else if (user['status'] === 'Inactive') {
+        <tp-chip color="red" size="sm" variant="outlined">INACTIVE</tp-chip>
+      } @else {
+        <tp-chip color="amber" size="sm" variant="outlined">PENDING</tp-chip>
+      }
+    </ng-template>
+  </tp-table>
+</section>
