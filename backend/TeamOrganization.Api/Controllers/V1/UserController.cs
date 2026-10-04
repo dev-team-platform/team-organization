@@ -58,6 +58,23 @@ public class UserController : ControllerBase
         return Ok(dtoResponse);
     }
 
+    [HttpPost("all")]
+    [Permissions(PermissionCodes.User.Read)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(GetAllUsersResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> GetAllUsersAsync(
+        [FromBody] GetAllUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = GetAllUsersRequest.ToModel(request);
+        var result = await _userQueryService.GetAllUsersAsync(model, cancellationToken);
+        var dtoResponse = GetAllUsersResponse.FromModel(result);
+        return Ok(dtoResponse);
+    }
+
     [HttpPost("new-user")]
     [Permissions(PermissionCodes.User.Create)]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateNewUserResponse))]

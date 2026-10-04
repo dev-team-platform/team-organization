@@ -44,4 +44,12 @@ public class UserQueryService : IUserQueryService
 
         return result;
     }
+
+    public async Task<GetAllUsersResponseModel> GetAllUsersAsync(
+        GetAllUsersRequestModel model,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _userRepository.FindAllUsersAsync(model, cancellationToken);
+        return GetAllUsersResponseModel.FromFilterResult(result);
+    }
 }

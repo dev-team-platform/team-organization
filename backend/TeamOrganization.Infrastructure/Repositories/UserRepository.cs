@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using TeamOrganization.Application.Interfaces.Repositories;
+using TeamOrganization.Application.Models.Common;
 using TeamOrganization.Application.Models.Users;
 using TeamOrganization.Domain.Entities;
 using TeamOrganization.Infrastructure.Persistence;
+using TeamOrganization.Infrastructure.Persistence.Extensions;
 
 namespace TeamOrganization.Infrastructure.Repositories;
 
@@ -67,5 +69,46 @@ public class UserRepository : GenericRepository<User>, IUserRepository
                     .Distinct()
             ]
         };
+    }
+
+    public async Task<FilterResult<GetAllUsersResponseModelItem>> FindAllUsersAsync(
+        FilterQuery<GetAllUsersResponseModelItem> query,
+        CancellationToken cancellationToken = default)
+    {
+        var users = from user in _dbContext.Set<User>()
+                    select new GetAllUsersResponseModelItem
+                    {
+                        Id = user.Id,
+                        EmployeeCode = user.EmployeeCode,
+                        Username = user.Username,
+                        Email = user.Email,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        DisplayName = user.DisplayName,
+                        AvatarUrl = user.AvatarUrl,
+                        Status = user.Status,
+                        LastLoginAt = user.LastLoginAt
+                    };
+
+        if (query.SortFields.Count == 0)
+        {
+            query.SortFields.Add(new SortField
+            {
+                FieldName = "displayName",
+                IsAscending = true
+            });
+        }
+
+        if (!query.SortFields.Any(sortField =>
+                string.Equals(sortField.FieldName, "id", StringComparison.OrdinalIgnoreCase)))
+        {
+            query.SortFields.Add(new SortField
+            {
+                FieldName = "id",
+                IsAscending = true
+            });
+        }
+
+        return await users.AsNoTracking().ToFilterResultAsync(query, cancellationToken);
     }
 }

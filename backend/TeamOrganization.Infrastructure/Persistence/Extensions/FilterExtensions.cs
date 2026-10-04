@@ -621,7 +621,7 @@ public static class FilterExtensions
 
                 if (targetType.IsEnum)
                 {
-                    return ParseEnumDisplayValue(targetType, rawValue);
+                    return ParseEnumValue(targetType, rawValue);
                 }
             }
             catch (Exception exception) when (exception is not UnprocessableEntityException)
@@ -646,11 +646,11 @@ public static class FilterExtensions
             );
         }
 
-        // Reuses the enum display-value converter so FE-facing enum values can be filtered directly.
-        private static object ParseEnumDisplayValue(Type enumType, string rawValue)
+        // Parses enum names case-insensitively so enum fields can use the same string filter payload.
+        private static object ParseEnumValue(Type enumType, string rawValue)
         {
             var method = typeof(EnumUtils)
-                .GetMethod(nameof(EnumUtils.ToString))!
+                .GetMethod(nameof(EnumUtils.Parse))!
                 .MakeGenericMethod(enumType);
 
             try
