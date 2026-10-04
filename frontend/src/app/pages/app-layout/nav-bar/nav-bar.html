@@ -1,7 +1,7 @@
-<header class="tt-nav-bar">
-  <div class="tt-nav-bar__start">
+<header class="to-nav-bar">
+  <div class="to-nav-bar__start">
     <tp-text-button
-      class="tt-nav-bar__collapse-button"
+      class="to-nav-bar__collapse-button"
       [attr.aria-label]="sideBarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
       color="gray"
       pressEffectShape="circle"
@@ -15,13 +15,13 @@
       </span>
     </tp-text-button>
 
-    <a class="tt-nav-bar__brand" href="/" aria-label="Team Tickets home">
-      <img class="tt-nav-bar__logo" src="/logo.png" alt="" height="32" width="32" />
-      <span class="tt-nav-bar__name">Team Tickets</span>
+    <a class="to-nav-bar__brand" href="/" aria-label="Team Organization home">
+      <img class="to-nav-bar__logo" src="/logo.png" alt="" height="32" width="32" />
+      <span class="to-nav-bar__name">Team Organization</span>
     </a>
   </div>
 
-  <div class="tt-nav-bar__search">
+  <div class="to-nav-bar__search">
     <tp-search-bar
       placeholder="Search tickets, projects, and people"
       ariaLabel="Search Team Tickets"
@@ -30,7 +30,7 @@
   </div>
 
   <tp-button
-    class="tt-nav-bar__create-button"
+    class="to-nav-bar__create-button"
     color="blue"
     variant="filled"
     width="140px"
@@ -40,7 +40,7 @@
     <span>Create ticket</span>
   </tp-button>
 
-  <div class="tt-nav-bar__actions">
+  <div class="to-nav-bar__actions">
     <tp-bell-notification [count]="10"></tp-bell-notification>
     <tp-avatar alt="Open user menu" tooltipTitle="Account menu" [size]="40"></tp-avatar>
   </div>

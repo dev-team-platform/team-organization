@@ -1,5 +1,5 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 const CSRF_COOKIE_NAME = 'XSRF-TOKEN';
 const CSRF_HEADER_NAME = 'X-XSRF-TOKEN';
@@ -31,5 +31,3 @@ export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
     }),
   );
 };
-
-

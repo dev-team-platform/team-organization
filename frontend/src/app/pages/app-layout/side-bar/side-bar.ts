@@ -1,9 +1,13 @@
-import { Component, input, signal } from '@angular/core';
+import { Component, computed, input, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { TpTextButton } from '@team-platform/ui';
+import { HasAccess } from '../../../core/directives/has-access';
+import { CurrentUser } from '../../../core/models/auth/current-user';
+import { Role } from '../../../enums/role';
 
 interface SideBarNavigationItem {
   label: string;
+  hasAccess: boolean;
   icon: string;
   route: string | null;
   type: 'navigate' | 'dropdown';
@@ -12,7 +16,7 @@ interface SideBarNavigationItem {
 
 @Component({
   selector: 'app-side-bar',
-  imports: [RouterLink, RouterLinkActive, TpTextButton],
+  imports: [RouterLink, RouterLinkActive, TpTextButton, HasAccess],
   host: {
     '[class.tt-side-bar-host--collapsed]': 'collapsed()',
   },
@@ -21,52 +25,50 @@ interface SideBarNavigationItem {
 })
 export class SideBar {
   readonly collapsed = input(false);
+  readonly currentUser = input<CurrentUser | null>(null);
+
   protected readonly expandedDropdownLabels = signal<ReadonlySet<string>>(new Set());
 
-  protected readonly workspaceItems: SideBarNavigationItem[] = [
-    { label: 'Home', icon: 'home', route: '/', type: 'navigate', children: [] },
+  protected readonly navigationItems = computed<SideBarNavigationItem[]>(() => [
     {
-      label: 'My tickets',
-      icon: 'assignment',
-      route: '/my-tickets',
+      label: 'Home',
+      hasAccess: true,
+      icon: 'home',
+      route: '/home',
       type: 'navigate',
       children: [],
     },
     {
-      label: 'Projects',
-      icon: 'folder_open',
+      label: 'Admin Settings',
+      icon: 'admin_panel_settings',
+      hasAccess: this.hasAdminAccess(),
       route: null,
       type: 'dropdown',
       children: [
         {
-          label: 'All projects',
-          icon: 'folder_open',
-          route: '/projects',
-          type: 'navigate',
-          children: [],
-        },
-        {
-          label: 'Active projects',
-          icon: 'folder_open',
-          route: '/projects/active',
-          type: 'navigate',
-          children: [],
-        },
-        {
-          label: 'Archived projects',
-          icon: 'inventory_2',
-          route: '/projects/archived',
+          label: 'Users Management',
+          icon: 'manage_accounts',
+          hasAccess: this.hasAdminAccess(),
+          route: '/admin-settings/users-management',
           type: 'navigate',
           children: [],
         },
       ],
     },
-  ];
+    {
+      label: 'Settings',
+      hasAccess: true,
+      icon: 'settings',
+      route: '/settings',
+      type: 'navigate',
+      children: [],
+    },
+  ]);
 
-  protected readonly planningItems: SideBarNavigationItem[] = [
-    { label: 'Boards', icon: 'view_kanban', route: '/boards', type: 'navigate', children: [] },
-    { label: 'Reports', icon: 'bar_chart', route: '/reports', type: 'navigate', children: [] },
-  ];
+  private hasAdminAccess(): boolean {
+    const roleName = this.currentUser()?.roleName;
+    return roleName === Role.SuperAdmin || roleName === Role.Admin;
+  }
 
   protected isDropdownExpanded(item: SideBarNavigationItem): boolean {
     return this.expandedDropdownLabels().has(item.label);

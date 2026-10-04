@@ -1,3 +1,6 @@
+import { Permission } from '../../../enums/permission';
+import { Role } from '../../../enums/role';
+
 export interface CurrentUser {
   id: string;
   employeeCode: string;
@@ -9,6 +12,6 @@ export interface CurrentUser {
   avatarUrl: string | null;
   lastLoginAt: string | null;
   lastLogoutAt: string | null;
-  roleName: string;
-  permissions: string[];
+  roleName: Role;
+  permissions: Permission[];
 }

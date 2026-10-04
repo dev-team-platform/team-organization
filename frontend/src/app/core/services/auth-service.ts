@@ -3,6 +3,12 @@ import { inject, Injectable, signal } from '@angular/core';
 import { catchError, map, Observable, of, tap } from 'rxjs';
 import { CurrentUser } from '../models/auth/current-user';
 
+export const AUTH_ENDPOINTS = {
+  LOGIN: '/api/v1/auth/login',
+  LOGOUT: '/api/v1/auth/logout',
+  CSRF: '/auth/csrf',
+};
+
 @Injectable({
   providedIn: 'root',
 })
@@ -31,16 +37,16 @@ export class AuthService {
   }
 
   initializeCsrf(): Observable<void> {
-    return this.httpClient.get<void>('/auth/csrf', {
+    return this.httpClient.get<void>(AUTH_ENDPOINTS.CSRF, {
       withCredentials: true,
     });
   }
 
   login(returnUrl: string = '/'): void {
-    window.location.href = '/api/v1/auth/login?returnUrl=' + encodeURIComponent(returnUrl);
+    window.location.href = AUTH_ENDPOINTS.LOGIN + '?returnUrl=' + encodeURIComponent(returnUrl);
   }
 
   logout(): void {
-    window.location.href = '/api/v1/auth/logout';
+    window.location.href = AUTH_ENDPOINTS.LOGOUT;
   }
 }

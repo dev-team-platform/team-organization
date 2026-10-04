@@ -1,19 +1,25 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { HasAccess } from '../../core/directives/has-access';
+import { CurrentUser } from '../../core/models/auth/current-user';
+import { AuthService } from '../../core/services/auth-service';
 import { NavBar } from './nav-bar/nav-bar';
 import { SideBar } from './side-bar/side-bar';
 
 @Component({
   selector: 'app-app-layout',
-  imports: [NavBar, SideBar, HasAccess, RouterOutlet],
+  imports: [NavBar, SideBar, RouterOutlet],
   templateUrl: './app-layout.html',
   styleUrl: './app-layout.scss',
 })
-export class AppLayout {
+export class AppLayout implements OnInit {
+  private readonly authService = inject(AuthService);
   protected readonly latestSearch = signal('');
-  protected readonly hasAccess = signal(false);
   protected readonly sideBarCollapsed = signal(false);
+  readonly currentUser = signal<CurrentUser | null>(null);
+
+  ngOnInit(): void {
+    this.currentUser.set(this.authService.currentUser());
+  }
 
   protected handleSearch(query: string): void {
     this.latestSearch.set(query);

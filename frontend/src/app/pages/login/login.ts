@@ -14,6 +14,7 @@ export class Login implements OnInit {
 
   ngOnInit() {
     const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
-    this.authService.login(returnUrl);
+    const absoluteReturnUrl = new URL(returnUrl, window.location.origin).toString();
+    this.authService.login(absoluteReturnUrl);
   }
 }
