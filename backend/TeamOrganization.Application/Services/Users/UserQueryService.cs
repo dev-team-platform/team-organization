@@ -1,9 +1,9 @@
-using TeamOrganization.Application.CacheKeys;
 using TeamOrganization.Application.Interfaces.Contexts;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Application.Interfaces.Services.Cache;
 using TeamOrganization.Application.Interfaces.Services.Users;
 using TeamOrganization.Application.Models.Users;
+using TeamOrganization.Domain.Constants.CacheKeys;
 using TeamOrganization.Domain.Exceptions;
 
 namespace TeamOrganization.Application.Services.Users;
@@ -31,9 +31,14 @@ public class UserQueryService : IUserQueryService
             keyObj.Key,
             cancellationToken);
 
-        if (cachedUser is not null)
+        if (cachedUser is not null && !string.IsNullOrWhiteSpace(cachedUser.IdentitySubject))
         {
             return cachedUser;
+        }
+
+        if (cachedUser is not null)
+        {
+            await _cacheService.RemoveAsync(keyObj.Key, cancellationToken);
         }
 
         var result = await _userRepository.FindCurrentUserByIdentitySubjectAsync(
@@ -43,5 +48,13 @@ public class UserQueryService : IUserQueryService
         await _cacheService.SetAsync(keyObj.Key, result, keyObj.Expiration, cancellationToken);
 
         return result;
+    }
+
+    public async Task<GetAllUsersResponseModel> GetAllUsersAsync(
+        GetAllUsersRequestModel model,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _userRepository.FindAllUsersAsync(model, cancellationToken);
+        return GetAllUsersResponseModel.FromFilterResult(result);
     }
 }

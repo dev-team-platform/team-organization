@@ -1,0 +1,45 @@
+.new-user-dialog__title {
+  font-weight: 700;
+}
+
+.new-user-dialog__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--tp-space-6);
+}
+
+.new-user-dialog__column {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--tp-space-6);
+}
+
+.new-user-dialog__gender-field {
+  display: grid;
+  gap: var(--tp-space-2);
+}
+
+.new-user-dialog__gender-label {
+  color: var(--tp-color-text-primary);
+  font-weight: 500;
+}
+
+.new-user-dialog__required-marker {
+  color: var(--tp-color-red-600);
+}
+
+.new-user-dialog__gender-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--tp-space-4);
+}
+
+.new-user-dialog__footer-actions {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--tp-space-3);
+}

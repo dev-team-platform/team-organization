@@ -1,0 +1,93 @@
+<tp-popover-menu
+  [(open)]="open"
+  [origin]="origin()"
+  ariaLabel="Notifications"
+  position="bottom-end"
+  width="min(420px, 90vw)"
+  maxWidth="min(90vw, 420px)"
+  maxHeight="min(600px, 80vh)"
+>
+  <div class="to-bell-notification-menu">
+    <header class="to-bell-notification-menu__header">
+      <h2>Notifications</h2>
+    </header>
+
+    <tp-divider class="to-bell-notification-menu__divider"></tp-divider>
+
+    @if (notifications().length === 0) {
+      <p class="to-bell-notification-menu__empty">No notifications to display</p>
+    } @else {
+      <div class="to-bell-notification-menu__list" aria-label="Notifications">
+        @for (
+          notification of notifications();
+          track notification.notificationId;
+          let last = $last
+        ) {
+          <article
+            class="to-bell-notification-menu__item"
+            [class.to-bell-notification-menu__item--interactive]="notification.isRead !== true"
+            [attr.role]="notification.isRead === true ? null : 'button'"
+            [attr.tabindex]="notification.isRead === true ? null : 0"
+            [attr.aria-label]="
+              notification.isRead === true
+                ? null
+                : 'Mark notification as read: ' + notification.title
+            "
+            (click)="markNotificationRead(notification)"
+            (keydown)="handleNotificationKeydown($event, notification)"
+          >
+            <div class="to-bell-notification-menu__item-heading">
+              <h3>{{ notification.title }}</h3>
+              @if (!notification.isRead) {
+                <span class="to-bell-notification-menu__unread-dot" aria-label="Unread"></span>
+              }
+            </div>
+
+            <p class="to-bell-notification-menu__content">
+              <ng-container
+                [ngTemplateOutlet]="formatContent(notification)"
+                [ngTemplateOutletContext]="{ $implicit: notification }"
+              ></ng-container>
+            </p>
+
+            <div class="to-bell-notification-menu__metadata">
+              <span>Created at: {{ notification.createdAt | date: 'dd-MMM-yyyy HH:mm:ss' }}</span>
+              @if (notification.isRead && notification.readAt) {
+                <span>Read at: {{ notification.readAt | date: 'dd-MMM-yyyy HH:mm:ss' }}</span>
+              }
+            </div>
+          </article>
+
+          @if (!last) {
+            <tp-divider class="to-bell-notification-menu__item-divider"></tp-divider>
+          }
+        }
+      </div>
+    }
+
+    <tp-divider class="to-bell-notification-menu__divider"></tp-divider>
+
+    <footer class="to-bell-notification-menu__footer">
+      <tp-text-button
+        class="mark-read"
+        color="gray"
+        pressEffectShape="rect"
+        contentAlignment="start"
+        height="20px"
+        width="auto"
+        [disabled]="!canMarkAllRead()"
+        (onClick)="markAllRead.emit()"
+      >
+        Mark all read
+      </tp-text-button>
+
+      <a routerLink="/settings/notification-history" (click)="closeMenu()">
+        View notification history
+      </a>
+    </footer>
+  </div>
+</tp-popover-menu>
+
+<ng-template #defaultContentTemplate let-notification>
+  {{ interpolateContentTemplate(notification) }}
+</ng-template>

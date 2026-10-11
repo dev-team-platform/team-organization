@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using TeamOrganization.Api.Utils;
-using TeamOrganization.Application.Enums;
 using TeamOrganization.Application.Models.Common;
+using TeamOrganization.Domain.Enums.Common;
 using TeamOrganization.Domain.Exceptions;
 using TeamOrganization.Domain.Utils;
 

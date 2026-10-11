@@ -1,0 +1,105 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.users-management {
+  min-width: 0;
+  padding: var(--tp-space-6);
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--tp-space-6);
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--tp-color-text-primary);
+    font-size: var(--tp-text-2xl);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  &__actions {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--tp-space-3);
+  }
+
+  &__search {
+    display: block;
+    width: min(24vw, 360px);
+    min-width: 220px;
+  }
+
+  &__action-button {
+    flex: 0 0 auto;
+  }
+
+  &__table {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  &__error {
+    margin: 0 0 var(--tp-space-4);
+    padding: var(--tp-space-3) var(--tp-space-4);
+    border: 1px solid var(--tp-color-red-200);
+    border-radius: var(--tp-radius-sm);
+    color: var(--tp-color-red-700);
+    background: var(--tp-color-red-50);
+  }
+}
+
+:host ::ng-deep .users-management__action-button .tp-button__content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tp-space-2);
+  white-space: nowrap;
+}
+
+:host ::ng-deep .users-management__action-button .tp-icon {
+  --tp-icon-size: 20px;
+}
+
+:host ::ng-deep .users-management__column-filter .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .users-management {
+    padding: var(--tp-space-4);
+
+    &__toolbar {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: var(--tp-space-4);
+    }
+
+    &__actions {
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    &__search {
+      width: 100%;
+      min-width: 180px;
+      flex: 1 1 100%;
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .users-management {
+    &__action-button {
+      flex: 1 1 auto;
+    }
+  }
+}

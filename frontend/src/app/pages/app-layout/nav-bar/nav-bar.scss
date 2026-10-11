@@ -1,4 +1,4 @@
-.tt-nav-bar {
+.to-nav-bar {
   display: grid;
   grid-template-columns: minmax(15rem, 1fr) minmax(20rem, 40rem) auto minmax(15rem, 1fr);
   align-items: center;
@@ -41,7 +41,7 @@
   &__name {
     font-size: var(--tp-text-xl);
     color: var(--tp-color-blue-500);
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.2;
     letter-spacing: -0.01em;
     white-space: nowrap;

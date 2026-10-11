@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 using System.Text.Json;
-using TeamOrganization.Application.Enums;
+using TeamOrganization.Domain.Enums.Common;
 using TeamOrganization.Domain.Utils;
 
 namespace TeamOrganization.Application.Models.Common;

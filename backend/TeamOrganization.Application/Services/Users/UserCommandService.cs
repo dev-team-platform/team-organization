@@ -1,18 +1,18 @@
 using System.Text.Json;
-using TeamOrganization.Application.CacheKeys;
-using TeamOrganization.Application.Constants.EventRoutingKeys;
-using TeamOrganization.Application.Constants.Notifications;
 using TeamOrganization.Application.Interfaces.Contexts;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Application.Interfaces.Services.Cache;
-using TeamOrganization.Application.Interfaces.Services.OutboxEvents;
+using TeamOrganization.Application.Interfaces.Services.Messaging;
 using TeamOrganization.Application.Interfaces.Services.Users;
 using TeamOrganization.Application.Models.Common;
-using TeamOrganization.Application.Models.OutboxEvents;
-using TeamOrganization.Application.Models.OutboxEvents.Notifications;
+using TeamOrganization.Application.Models.Messaging.Publishing;
+using TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
 using TeamOrganization.Application.Models.Users;
+using TeamOrganization.Domain.Constants.CacheKeys;
+using TeamOrganization.Domain.Constants.EventRoutingKeys;
+using TeamOrganization.Domain.Constants.Notifications;
 using TeamOrganization.Domain.Entities;
-using TeamOrganization.Domain.Enums;
+using TeamOrganization.Domain.Enums.Users;
 using TeamOrganization.Domain.Exceptions;
 using TeamOrganization.Domain.Utils;
 
@@ -23,32 +23,43 @@ public class UserCommandService : IUserCommandService
     private readonly Serilog.ILogger _logger;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly IUserQueryService _userQueryService;
     private readonly ICacheService _cacheService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IOutboxEventService _outboxEventService;
+    private readonly IMessagingPublisher<OutboxEvent<SendNotificationEventModel>> _messagingPublisher;
 
     public UserCommandService(
         Serilog.ILogger logger,
         ICurrentUserContext currentUserContext,
         IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        IUserRoleRepository userRoleRepository,
         IUserQueryService userQueryService,
         ICacheService cacheService,
         IUnitOfWork unitOfWork,
-        IOutboxEventService outboxEventService)
+        IMessagingPublisher<OutboxEvent<SendNotificationEventModel>> messagingPublisher)
     {
         _logger = logger;
         _currentUserContext = currentUserContext;
         _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _userRoleRepository = userRoleRepository;
         _userQueryService = userQueryService;
         _cacheService = cacheService;
         _unitOfWork = unitOfWork;
-        _outboxEventService = outboxEventService;
+        _messagingPublisher = messagingPublisher;
     }
 
     public async Task<CreateUserResponseModel> CreateNewUserAsync(CreateUserRequestModel model, CancellationToken cancellationToken = default)
     {
         var creator = await _userQueryService.GetCurrentUserAsync(cancellationToken);
+
+        var role = await _roleRepository.FindFirstByConditionAsync(
+            q => q.Where(x => x.Code == model.RoleCode),
+            cancellationToken: cancellationToken)
+            ?? throw new NotFoundException($"Role with code '{model.RoleCode}' not found");
 
         var newUser = new User
         {
@@ -60,10 +71,22 @@ public class UserCommandService : IUserCommandService
             LastName = model.LastName,
             DisplayName = model.DisplayName,
             EmployeeCode = model.EmployeeCode,
+            Gender = model.Gender,
+            BirthDate = model.BirthDate,
             Status = UserStatus.Active
         };
 
         _userRepository.Add(newUser);
+
+        var newUserRole = new UserRole
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = newUser.Id,
+            RoleId = role.Id,
+            EffectiveFrom = DateTimeOffset.UtcNow
+        };
+
+        _userRoleRepository.Add(newUserRole);
 
         var eventData = CreatedUserEventData.FromEntity(newUser);
         var notificationEvent = new OutboxEvent<SendNotificationEventModel>
@@ -92,9 +115,20 @@ public class UserCommandService : IUserCommandService
             }
         };
 
-        await _unitOfWork.SaveChangesAsync(creator.Id, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(creator.Id.ToString(), cancellationToken);
 
-        await _outboxEventService.PublishAsync(notificationEvent, cancellationToken);
+        // The user is already committed, so cancellation of the notification publish must not
+        // make the API compensate by deleting the Keycloak account while leaving the DB user.
+        try
+        {
+            await _messagingPublisher.HandleAsync(notificationEvent, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.Warning(
+                "Notification publishing was cancelled after user {UserId} was committed",
+                newUser.Id);
+        }
 
         return new CreateUserResponseModel
         {
@@ -106,6 +140,8 @@ public class UserCommandService : IUserCommandService
             LastName = newUser.LastName,
             DisplayName = newUser.DisplayName,
             EmployeeCode = newUser.EmployeeCode,
+            Gender = newUser.Gender,
+            BirthDate = newUser.BirthDate,
             CreatedBy = new NavigationResponseModel
             {
                 Id = creator.Id,
@@ -132,22 +168,7 @@ public class UserCommandService : IUserCommandService
         var currentUserKey = UserCacheKeys.GetCurrentUserKey(model.IdentitySubject);
         await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
 
-        await _unitOfWork.SaveChangesAsync(user.Id, cancellationToken);
+        await _unitOfWork.SaveChangesWithoutAuditAsync(cancellationToken);
     }
 
-    public async Task UpdateLastLogoutAsync(UpdateLastLogoutRequestModel model, CancellationToken cancellationToken = default)
-    {
-        var user = await _userRepository.FindFirstByConditionAsync(
-            q => q.Where(x => x.IdentitySubject == model.IdentitySubject),
-            trackChanges: true,
-            cancellationToken)
-            ?? throw new NotFoundException("User not found");
-
-        user.LastLogoutAt = model.LastLogoutAt;
-
-        var currentUserKey = UserCacheKeys.GetCurrentUserKey(model.IdentitySubject);
-        await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
-
-        await _unitOfWork.SaveChangesAsync(user.Id, cancellationToken);
-    }
 }

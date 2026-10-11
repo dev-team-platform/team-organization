@@ -1,4 +1,6 @@
 using TeamOrganization.Application.Models.Common;
+using TeamOrganization.Domain.Enums;
+using TeamOrganization.Domain.Enums.Users;
 
 namespace TeamOrganization.Application.Models.Users;
 
@@ -12,6 +14,8 @@ public class CreateUserResponseModel
     public string? LastName { get; set; }
     public string DisplayName { get; set; } = null!;
     public string EmployeeCode { get; set; } = null!;
+    public UserGender Gender { get; set; }
+    public DateOnly? BirthDate { get; set; }
     public NavigationResponseModel? CreatedBy { get; set; }
     public NavigationResponseModel? UpdatedBy { get; set; }
 }

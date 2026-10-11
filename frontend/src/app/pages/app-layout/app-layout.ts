@@ -1,18 +1,18 @@
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { HasAccess } from '../../core/directives/has-access';
+import { Breadcrumb } from './breadcrumb/breadcrumb';
 import { NavBar } from './nav-bar/nav-bar';
 import { SideBar } from './side-bar/side-bar';
 
 @Component({
   selector: 'app-app-layout',
-  imports: [NavBar, SideBar, HasAccess, RouterOutlet],
+  imports: [NavBar, SideBar, Breadcrumb, RouterOutlet],
   templateUrl: './app-layout.html',
   styleUrl: './app-layout.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppLayout {
   protected readonly latestSearch = signal('');
-  protected readonly hasAccess = signal(false);
   protected readonly sideBarCollapsed = signal(false);
 
   protected handleSearch(query: string): void {
@@ -21,5 +21,9 @@ export class AppLayout {
 
   protected toggleSideBar(): void {
     this.sideBarCollapsed.update((collapsed) => !collapsed);
+  }
+
+  protected expandSideBar(): void {
+    this.sideBarCollapsed.set(false);
   }
 }

@@ -1,1 +1,8 @@
-<router-outlet></router-outlet>
+<app-app-layout></app-app-layout>
+
+<tp-toast-notification-container
+  position="top-right"
+  pushMode="below"
+  toastDisplayMode="from-right"
+  [(toasts)]="toastService.toasts"
+></tp-toast-notification-container>

@@ -1,4 +1,5 @@
 using TeamOrganization.Application.Models.Users;
+using TeamOrganization.Domain.Utils;
 
 namespace TeamOrganization.Api.Dtos.V1.Users;
 
@@ -12,8 +13,9 @@ public class GetCurrentUserResponse
     public string? LastName { get; set; }
     public string DisplayName { get; set; } = null!;
     public string? AvatarUrl { get; set; }
+    public string Gender { get; set; } = null!;
+    public DateOnly? BirthDate { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
-    public DateTimeOffset? LastLogoutAt { get; set; }
     public string RoleName { get; set; } = null!;
     public List<string> Permissions { get; set; } = [];
 
@@ -28,10 +30,11 @@ public class GetCurrentUserResponse
             FirstName = model.FirstName,
             LastName = model.LastName,
             DisplayName = model.DisplayName,
+            Gender = EnumUtils.ToString(model.Gender),
+            BirthDate = model.BirthDate,
             LastLoginAt = model.LastLoginAt,
-            LastLogoutAt = model.LastLogoutAt,
             RoleName = model.RoleName,
-            Permissions = model.PermissionCodes
+            Permissions = model.PermissionCodes,
         };
     }
 }

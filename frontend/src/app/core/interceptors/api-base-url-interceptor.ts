@@ -1,22 +1,43 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import { inject } from '@angular/core';
+import {
+  API_BASE_URLS_MAPPING,
+  CLIENT_ACTION_ID_HEADER,
+  CLIENT_REQUEST_ID_HEADER,
+} from '../constants/interceptors';
+import { API_SOURCE } from '../enums/api-sources';
+import { ClientCorrelationService } from '../services/client-correlation-service';
 
 export const apiBaseUrlInterceptor: HttpInterceptorFn = (req, next) => {
-  if (/^https?:\/\//i.test(req.url)) {
-    return next(req);
+  const correlationService = inject(ClientCorrelationService);
+
+  // 1. Resolve request URL
+  let requestUrl = req.url;
+
+  if (!/^https?:\/\//i.test(requestUrl)) {
+    const source = req.context.get(API_SOURCE);
+    const baseUrl = API_BASE_URLS_MAPPING[source].replace(/\/+$/, '');
+    const endpoint = requestUrl.replace(/^\/+/, '');
+
+    requestUrl = `${baseUrl}/${endpoint}`;
   }
 
-  let baseUrl = environment.apiBaseUrl.replace(/\/+$/, '');
+  // 2. Correlation headers
+  const clientActionId = correlationService.getClientActionId();
+  const clientRequestId = correlationService.createRequestId();
 
-  if (req.url.startsWith('auth')) {
-    baseUrl = baseUrl.replace(/\/organizations(?=\/|$)/, '');
+  let headers = req.headers.set(CLIENT_REQUEST_ID_HEADER, clientRequestId);
+
+  if (clientActionId) {
+    headers = headers.set(CLIENT_ACTION_ID_HEADER, clientActionId);
   }
 
-  const endpoint = req.url.replace(/^\/+/, '');
-
+  // 3. Forward request
   return next(
     req.clone({
-      url: `${baseUrl}/${endpoint}`,
+      url: requestUrl,
+      headers,
+      withCredentials: true,
     }),
   );
 };

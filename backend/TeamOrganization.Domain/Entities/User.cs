@@ -1,4 +1,4 @@
-using TeamOrganization.Domain.Enums;
+using TeamOrganization.Domain.Enums.Users;
 
 namespace TeamOrganization.Domain.Entities;
 
@@ -13,6 +13,7 @@ public class User : EntityBase
     public string DisplayName { get; set; } = null!;
     public string? AvatarUrl { get; set; }
     public UserStatus Status { get; set; }
+    public UserGender Gender { get; set; } = UserGender.Male;
+    public DateOnly? BirthDate { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
-    public DateTimeOffset? LastLogoutAt { get; set; }
 }

@@ -3,11 +3,11 @@
   (sideBarToggle)="toggleSideBar()"
 ></app-nav-bar>
 
-<div class="tt-app-shell">
-  <app-side-bar [collapsed]="sideBarCollapsed()"></app-side-bar>
+<div class="to-app-shell">
+  <app-side-bar [collapsed]="sideBarCollapsed()" (expandRequested)="expandSideBar()"></app-side-bar>
 
-  <main class="tt-app-shell__content">
+  <main class="to-app-shell__content">
+    <app-breadcrumb></app-breadcrumb>
     <router-outlet></router-outlet>
-    <div *appHasAccess="hasAccess()">You have access to this content.</div>
   </main>
 </div>

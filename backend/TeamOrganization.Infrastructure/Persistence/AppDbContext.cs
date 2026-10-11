@@ -2,12 +2,13 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Domain.Entities;
+using TeamOrganization.Infrastructure.Persistence.Extensions;
 
 namespace TeamOrganization.Infrastructure.Persistence;
 
 public class AppDbContext : DbContext, IUnitOfWork
 {
-    internal Guid? CurrentActorId { get; private set; }
+    internal string? CurrentActorId { get; private set; }
 
     public AppDbContext(DbContextOptions options) : base(options)
     {
@@ -17,10 +18,13 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     #endregion
 
     public async Task<int> SaveChangesAsync(
-        Guid actorId,
+        string actorId,
         CancellationToken cancellationToken = default)
     {
         CurrentActorId = actorId;
@@ -28,6 +32,10 @@ public class AppDbContext : DbContext, IUnitOfWork
         try
         {
             return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueConstraintViolation())
+        {
+            throw ex.ToConflictException(this);
         }
         finally
         {
@@ -38,7 +46,29 @@ public class AppDbContext : DbContext, IUnitOfWork
     public async Task<int> SaveChangesWithoutAuditAsync(CancellationToken cancellationToken = default)
     {
         CurrentActorId = null;
-        return await base.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueConstraintViolation())
+        {
+            throw ex.ToConflictException(this);
+        }
+    }
+
+    public override async Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueConstraintViolation())
+        {
+            throw ex.ToConflictException(this);
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

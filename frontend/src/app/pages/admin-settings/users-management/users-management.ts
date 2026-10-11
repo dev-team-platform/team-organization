@@ -1,0 +1,398 @@
+import { DatePipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  TpButton,
+  TpChip,
+  TpInput,
+  TpInputAutocompleteMultiselect,
+  TpInputDatePicker,
+  TpInputValue,
+  TpSearchBar,
+  TpSelectOption,
+  TpTable,
+  TpTableCellContent,
+  TpTableColumn,
+  TpTableConfig,
+  TpTableData,
+  TpTableFilterContent,
+  TpTablePageChange,
+  TpTableSort,
+} from '@team-platform/ui';
+import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
+import { DEFAULT_CHIP_MAPPING } from '../../../core/constants/common';
+import { FilterOperator, TemporalPartType } from '../../../core/enums/common';
+import { RoleName } from '../../../core/enums/uam';
+import { UserGender, UserStatus } from '../../../core/enums/users';
+import { ChipMapping, FilterCriterionRequest } from '../../../core/models/common';
+import { GetUsersRequest, UserListItem } from '../../../core/models/users';
+import { ClientCorrelationService } from '../../../core/services/client-correlation-service';
+import { ToastService } from '../../../core/services/toast-service';
+import { UserService } from '../../../core/services/user-service';
+import { isNotEmpty, resolveErrorMessage } from '../../../core/utils/common';
+import { NewUserDialog } from './new-user-dialog/new-user-dialog';
+
+type UserFilterField =
+  'employeeCode' | 'firstName' | 'lastName' | 'displayName' | 'username' | 'email';
+
+@Component({
+  selector: 'app-users-management',
+  imports: [
+    TpButton,
+    TpChip,
+    TpInput,
+    TpInputAutocompleteMultiselect,
+    TpInputDatePicker,
+    TpSearchBar,
+    TpTable,
+    TpTableCellContent,
+    TpTableFilterContent,
+    DatePipe,
+    NewUserDialog,
+  ],
+  templateUrl: './users-management.html',
+  styleUrl: './users-management.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class UsersManagement implements OnInit {
+  private readonly userService = inject(UserService);
+  private readonly clientCorrelationService = inject(ClientCorrelationService);
+  private readonly toastService = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly filterChanges = new Subject<void>();
+  private readonly userRequests = new Subject<GetUsersRequest>();
+  private lastUsersRequest: GetUsersRequest | null = null;
+
+  readonly users = signal<UserListItem[]>([]);
+  readonly totalUsers = signal(0);
+  readonly currentPage = signal(1);
+  readonly pageSize = signal(20);
+  readonly globalSearch = signal('');
+  readonly textFilters = signal<Partial<Record<UserFilterField, string>>>({});
+  readonly roleFilters = signal<string[]>([]);
+  readonly statusFilters = signal<string[]>([]);
+  readonly genderFilters = signal<string[]>([]);
+  readonly lastLoginDateFilter = signal<Date | null>(null);
+  readonly birthDateFilter = signal<Date | null>(null);
+  readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
+  readonly newUserDialogOpen = signal(false);
+  readonly statusOptions = [UserStatus.Active, UserStatus.Inactive, UserStatus.Pending];
+  readonly genderOptions = [UserGender.Male, UserGender.Female, UserGender.Unknown];
+  readonly roleOptions = [RoleName.SuperAdmin, RoleName.Admin, RoleName.Employee];
+
+  readonly statusMapping: Record<UserStatus, ChipMapping> = {
+    [UserStatus.Active]: { color: 'green', displayValue: UserStatus.Active.toUpperCase() },
+    [UserStatus.Inactive]: { color: 'red', displayValue: UserStatus.Inactive.toUpperCase() },
+    [UserStatus.Pending]: { color: 'amber', displayValue: UserStatus.Pending.toUpperCase() },
+  };
+
+  readonly genderMapping: Record<UserGender, ChipMapping> = {
+    [UserGender.Male]: { color: 'blue', displayValue: UserGender.Male.toUpperCase() },
+    [UserGender.Female]: { color: 'yellow', displayValue: UserGender.Female.toUpperCase() },
+    [UserGender.Unknown]: { color: 'gray', displayValue: UserGender.Unknown.toUpperCase() },
+  };
+
+  readonly roleMapping: Record<RoleName, ChipMapping> = {
+    [RoleName.SuperAdmin]: { color: 'purple', displayValue: 'SUPER ADMIN' },
+    [RoleName.Admin]: { color: 'blue', displayValue: 'ADMIN' },
+    [RoleName.Employee]: { color: 'gray', displayValue: 'EMPLOYEE' },
+  };
+
+  getStatus(user: any): ChipMapping {
+    const status = user['status'] as UserStatus;
+    return this.statusMapping[status] ?? DEFAULT_CHIP_MAPPING;
+  }
+
+  getRole(user: any): ChipMapping {
+    const role = user['roleName'] as RoleName;
+    return this.roleMapping[role] ?? DEFAULT_CHIP_MAPPING;
+  }
+
+  getGender(user: any): ChipMapping {
+    const gender = user['gender'] as UserGender;
+    return this.genderMapping[gender] ?? this.genderMapping[UserGender.Unknown];
+  }
+
+  protected dateOnlyAsUtc(value: string): string {
+    return `${value}T00:00:00Z`;
+  }
+
+  private readonly activeSort = signal<TpTableSort>({
+    key: 'displayName',
+    direction: 'asc',
+  });
+
+  private readonly columns: readonly TpTableColumn<UserListItem>[] = [
+    { key: 'employeeCode', title: 'Employee Code', sortable: true, width: '150px' },
+    { key: 'firstName', title: 'First Name', sortable: true, width: '150px' },
+    { key: 'lastName', title: 'Last Name', sortable: true, width: '150px' },
+    { key: 'displayName', title: 'Display Name', sortable: true, width: '180px' },
+    { key: 'username', title: 'Username', sortable: true, width: '160px' },
+    { key: 'email', title: 'Email', sortable: true, width: '250px', maxCellContentLength: 255 },
+    { key: 'roleName', title: 'Role', sortable: true, width: '200px' },
+    { key: 'status', title: 'Status', sortable: true, width: '200px' },
+    { key: 'gender', title: 'Gender', sortable: true, width: '140px' },
+    { key: 'birthDate', title: 'Birth Date', sortable: true, width: '150px' },
+    { key: 'lastLoginAt', title: 'Last Login At', sortable: true, width: '150px' },
+  ];
+
+  readonly tableData = computed<TpTableData<UserListItem>>(() => ({
+    rows: this.users(),
+    dataMode: 'server',
+    totalRows: this.totalUsers(),
+  }));
+
+  readonly tableState = computed(() => ({ loading: { enabled: this.loading() } }));
+
+  readonly tableConfig = computed<TpTableConfig<UserListItem>>(() => ({
+    columns: this.columns,
+    maxCellContentLength: 64,
+    filter: { enabled: true },
+    sort: { enabled: true, value: this.activeSort() },
+    pagination: {
+      enabled: true,
+      page: this.currentPage(),
+      pageSize: this.pageSize(),
+      pageSizeOptions: [10, 20, 50, 100],
+      prevPageButtonDisabled: this.loading(),
+      nextPageButtonDisabled: this.loading(),
+    },
+    reload: { enabled: true, buttonDisabled: this.loading() },
+  }));
+
+  constructor() {
+    this.filterChanges
+      .pipe(debounceTime(500), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadUsers());
+
+    this.userRequests
+      .pipe(
+        switchMap((request) => {
+          this.loading.set(true);
+          this.loadError.set(null);
+          this.clientCorrelationService.startAction();
+
+          return this.userService.getUsers(request).pipe(
+            tap((result) => {
+              this.users.set(result.items);
+              this.totalUsers.set(result.totalItems);
+            }),
+            catchError((error: unknown) => {
+              this.users.set([]);
+              this.totalUsers.set(0);
+              this.loadError.set(resolveErrorMessage(error));
+              return EMPTY;
+            }),
+            finalize(() => {
+              this.loading.set(false);
+              this.clientCorrelationService.completeAction();
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+
+    effect(() => {
+      const error = this.loadError();
+      if (isNotEmpty(error)) {
+        this.toastService.enqueue({
+          type: 'error',
+          content: error!,
+        });
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    this.loadUsers();
+  }
+
+  onGlobalSearch(value: string): void {
+    this.globalSearch.set(value.trim());
+    this.scheduleFilteredLoad();
+  }
+
+  onTextFilterChange(field: string, value: TpInputValue): void {
+    if (!this.isUserFilterField(field)) return;
+
+    this.textFilters.update((filters) => ({
+      ...filters,
+      [field]: typeof value === 'string' ? value : value === null ? '' : String(value),
+    }));
+    this.scheduleFilteredLoad();
+  }
+
+  onStatusFilterChange(values: TpSelectOption[]): void {
+    this.statusFilters.set(values.filter((value): value is string => typeof value === 'string'));
+    this.scheduleFilteredLoad();
+  }
+
+  onGenderFilterChange(values: TpSelectOption[]): void {
+    this.genderFilters.set(values.filter((value): value is string => typeof value === 'string'));
+    this.scheduleFilteredLoad();
+  }
+
+  onRoleFilterChange(values: TpSelectOption[]): void {
+    this.roleFilters.set(values.filter((value): value is string => typeof value === 'string'));
+    this.scheduleFilteredLoad();
+  }
+
+  onLastLoginDateChange(value: Date | null): void {
+    this.lastLoginDateFilter.set(value);
+    this.scheduleFilteredLoad();
+  }
+
+  onBirthDateChange(value: Date | null): void {
+    this.birthDateFilter.set(value);
+    this.scheduleFilteredLoad();
+  }
+
+  onPaginationChange(change: TpTablePageChange): void {
+    this.currentPage.set(change.page);
+    this.pageSize.set(change.pageSize);
+    this.loadUsers();
+  }
+
+  onSortChange(sort: TpTableSort | null): void {
+    if (!sort) return;
+    this.activeSort.set(sort);
+    this.currentPage.set(1);
+    this.loadUsers();
+  }
+
+  reloadUsers(): void {
+    this.loadUsers();
+  }
+
+  openNewUserDialog(): void {
+    this.newUserDialogOpen.set(true);
+  }
+
+  handleUserCreated(): void {
+    if (this.lastUsersRequest) {
+      this.userRequests.next(this.lastUsersRequest);
+    } else {
+      this.loadUsers();
+    }
+  }
+
+  textFilterValue(field: string): string {
+    return this.isUserFilterField(field) ? (this.textFilters()[field] ?? '') : '';
+  }
+
+  columnTitle(key: string): string {
+    return this.columns.find((column) => column.key === key)?.title ?? key;
+  }
+
+  private scheduleFilteredLoad(): void {
+    this.currentPage.set(1);
+    this.filterChanges.next();
+  }
+
+  private isUserFilterField(field: string): field is UserFilterField {
+    return ['employeeCode', 'firstName', 'lastName', 'displayName', 'username', 'email'].includes(
+      field,
+    );
+  }
+
+  private loadUsers(): void {
+    const filterCriteria = this.buildFilterCriteria();
+    const sort = this.activeSort();
+    const request: GetUsersRequest = {
+      currentPage: this.currentPage(),
+      itemsPerPage: this.pageSize(),
+      searchGlobalText: this.globalSearch().trim() || undefined,
+      filterCriteria,
+      sortFields: [
+        {
+          fieldName: sort.key,
+          isAscending: sort.direction === 'asc',
+        },
+      ],
+    };
+
+    this.lastUsersRequest = request;
+    this.userRequests.next(request);
+  }
+
+  private buildFilterCriteria(): FilterCriterionRequest[] {
+    const criteria: FilterCriterionRequest[] = Object.entries(this.textFilters())
+      .filter((entry): entry is [UserFilterField, string] => !!entry[1]?.trim())
+      .map(([fieldName, value]) => ({
+        fieldName,
+        operator: FilterOperator.StartsWith,
+        values: [value.trim()],
+      }));
+
+    const statuses = this.statusFilters();
+    if (statuses.length > 0) {
+      criteria.push({
+        fieldName: 'status',
+        operator: FilterOperator.Equals,
+        values: statuses,
+      });
+    }
+
+    const genders = this.genderFilters();
+    if (genders.length > 0) {
+      criteria.push({
+        fieldName: 'gender',
+        operator: FilterOperator.Equals,
+        values: genders,
+      });
+    }
+
+    const roles = this.roleFilters();
+    if (roles.length > 0) {
+      criteria.push({
+        fieldName: 'roleName',
+        operator: FilterOperator.Equals,
+        values: roles,
+      });
+    }
+
+    const date = this.lastLoginDateFilter();
+    if (date) {
+      const dateAtUtcMidnight = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+      );
+      criteria.push({
+        fieldName: 'lastLoginAt',
+        operator: FilterOperator.Equals,
+        values: [dateAtUtcMidnight.toISOString()],
+        dateTimeFilterOptions: {
+          offsetMinutes: -date.getTimezoneOffset(),
+          temporalPartType: TemporalPartType.None,
+        },
+      });
+    }
+
+    const birthDate = this.birthDateFilter();
+    if (birthDate) {
+      criteria.push({
+        fieldName: 'birthDate',
+        operator: FilterOperator.Equals,
+        values: [this.formatDateOnly(birthDate)],
+      });
+    }
+
+    return criteria;
+  }
+
+  private formatDateOnly(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+}

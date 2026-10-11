@@ -4,6 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start-development": "ng serve --configuration development --port 6100",
+    "start-dev": "ng serve --configuration dev --port 6100",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
@@ -19,6 +21,7 @@
     "@angular/material": "^21.2.14",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@microsoft/signalr": "^10.0.11",
     "@team-platform/ui": "file:../../team-platform-ui/dist/ui",
     "material-symbols": "^0.45.8",
     "rxjs": "~7.8.0",

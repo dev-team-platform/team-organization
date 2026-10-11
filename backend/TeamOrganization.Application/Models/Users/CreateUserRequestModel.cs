@@ -1,3 +1,5 @@
+using TeamOrganization.Domain.Enums.Users;
+
 namespace TeamOrganization.Application.Models.Users;
 
 public class CreateUserRequestModel
@@ -9,4 +11,7 @@ public class CreateUserRequestModel
     public string? LastName { get; set; }
     public string DisplayName { get; set; } = null!;
     public string EmployeeCode { get; set; } = null!;
+    public string RoleCode { get; set; } = null!;
+    public UserGender Gender { get; set; } = UserGender.Male;
+    public DateOnly? BirthDate { get; set; }
 }
