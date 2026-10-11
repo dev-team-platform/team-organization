@@ -112,7 +112,7 @@ public sealed class RabbitMqConsumerHostedService : BackgroundService
         try
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
-            var handler = scope.ServiceProvider.GetRequiredKeyedService<IMessagingConsumerHandler>(consumerName);
+            var handler = scope.ServiceProvider.GetRequiredKeyedService<IMessagingConsumer>(consumerName);
             await handler.HandleAsync(delivery.Body, cancellationToken);
             await channel.BasicAckAsync(delivery.DeliveryTag, multiple: false, cancellationToken);
         }

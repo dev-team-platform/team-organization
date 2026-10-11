@@ -1,4 +1,4 @@
-namespace TeamOrganization.Api.Options;
+namespace TeamOrganization.Infrastructure.Options;
 
 public class UserManagementOptions
 {

@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using TeamOrganization.Api.Options;
-using TeamOrganization.Api.Services;
+using TeamOrganization.Infrastructure.Options;
+using TeamOrganization.Infrastructure.Services.IdentityProviders;
 
 namespace TeamOrganization.Api.Extensions;
 
@@ -12,29 +12,6 @@ public static class AuthenticationExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services
-            .AddOptions<AuthOptions>()
-            .BindConfiguration(AuthOptions.SectionName)
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.InternalJwt.Issuer),
-                "Auth:InternalJwt:Issuer is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.InternalJwt.Audience),
-                "Auth:InternalJwt:Audience is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.InternalJwt.PublicKeyPemPath),
-                "Auth:InternalJwt:PublicKeyPemPath is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.Authority),
-                "Auth:KeycloakForAdminApi:Authority is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.ClientId),
-                "Auth:KeycloakForAdminApi:ClientId is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.ClientSecret),
-                "Auth:KeycloakForAdminApi:ClientSecret is required.")
-            .ValidateOnStart();
-
         var authOptions = configuration
             .GetRequiredSection(AuthOptions.SectionName)
             .Get<AuthOptions>()!;
@@ -75,14 +52,6 @@ public static class AuthenticationExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services
-            .AddOptions<UserManagementOptions>()
-            .BindConfiguration(UserManagementOptions.SectionName)
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.DefaultPassword),
-                "UserManagement:DefaultPassword is required.")
-            .ValidateOnStart();
-
         var authOptions = configuration
             .GetRequiredSection(AuthOptions.SectionName)
             .Get<AuthOptions>()!;
@@ -92,7 +61,6 @@ public static class AuthenticationExtensions
         services.AddHttpClient(
             KeycloakService.HttpClientName,
             client => client.BaseAddress = new Uri(authority, UriKind.Absolute));
-        services.AddSingleton<IKeycloakService, KeycloakService>();
 
         return services;
     }

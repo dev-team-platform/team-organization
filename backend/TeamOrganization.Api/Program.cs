@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.OpenApi;
 using Serilog;
 using TeamOrganization.Api.Extensions;

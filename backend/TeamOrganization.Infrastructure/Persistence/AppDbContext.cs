@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using TeamOrganization.Application.Interfaces.Repositories;
 using TeamOrganization.Domain.Entities;
+using TeamOrganization.Infrastructure.Persistence.Extensions;
 
 namespace TeamOrganization.Infrastructure.Persistence;
 
@@ -32,6 +33,10 @@ public class AppDbContext : DbContext, IUnitOfWork
         {
             return await base.SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateException ex) when (ex.IsUniqueConstraintViolation())
+        {
+            throw ex.ToConflictException(this);
+        }
         finally
         {
             CurrentActorId = null;
@@ -41,7 +46,29 @@ public class AppDbContext : DbContext, IUnitOfWork
     public async Task<int> SaveChangesWithoutAuditAsync(CancellationToken cancellationToken = default)
     {
         CurrentActorId = null;
-        return await base.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueConstraintViolation())
+        {
+            throw ex.ToConflictException(this);
+        }
+    }
+
+    public override async Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueConstraintViolation())
+        {
+            throw ex.ToConflictException(this);
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

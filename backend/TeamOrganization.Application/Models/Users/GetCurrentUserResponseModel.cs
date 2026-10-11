@@ -1,3 +1,5 @@
+using TeamOrganization.Domain.Enums.Users;
+
 namespace TeamOrganization.Application.Models.Users;
 
 public class GetCurrentUserResponseModel
@@ -11,6 +13,8 @@ public class GetCurrentUserResponseModel
     public string? LastName { get; set; }
     public string DisplayName { get; set; } = null!;
     public string? AvatarUrl { get; set; }
+    public UserGender Gender { get; set; }
+    public DateOnly? BirthDate { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public string RoleName { get; set; } = null!;
     public List<string> PermissionCodes { get; set; } = [];

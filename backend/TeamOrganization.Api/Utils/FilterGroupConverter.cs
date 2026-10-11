@@ -1,6 +1,6 @@
 using TeamOrganization.Domain.Exceptions;
 using TeamOrganization.Application.Models.Common;
-using TeamOrganization.Application.Enums;
+using TeamOrganization.Domain.Enums.Common;
 
 namespace TeamOrganization.Api.Utils;
 

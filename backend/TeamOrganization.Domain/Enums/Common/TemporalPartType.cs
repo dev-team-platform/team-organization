@@ -1,4 +1,4 @@
-namespace TeamOrganization.Application.Enums;
+namespace TeamOrganization.Domain.Enums.Common;
 
 public enum TemporalPartType
 {

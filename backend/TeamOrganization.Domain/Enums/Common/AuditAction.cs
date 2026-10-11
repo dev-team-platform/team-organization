@@ -1,4 +1,4 @@
-namespace TeamOrganization.Domain.Enums;
+namespace TeamOrganization.Domain.Enums.Common;
 
 public enum AuditAction
 {

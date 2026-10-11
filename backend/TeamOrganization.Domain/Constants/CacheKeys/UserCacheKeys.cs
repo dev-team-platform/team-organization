@@ -1,4 +1,4 @@
-namespace TeamOrganization.Application.CacheKeys;
+namespace TeamOrganization.Domain.Constants.CacheKeys;
 
 public static class UserCacheKeys
 {

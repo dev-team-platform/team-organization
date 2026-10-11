@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TeamOrganization.Domain.Entities;
+using TeamOrganization.Domain.Enums.Users;
 
 namespace TeamOrganization.Infrastructure.Persistence.Configurations;
 
@@ -58,6 +59,16 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasConversion<string>()
             .IsRequired()
             .HasMaxLength(50);
+
+        builder.Property(x => x.Gender)
+            .HasColumnName("gender")
+            .HasConversion<string>()
+            .IsRequired()
+            .HasMaxLength(20)
+            .HasDefaultValue(UserGender.Male);
+
+        builder.Property(x => x.BirthDate)
+            .HasColumnName("birth_date");
 
         builder.Property(x => x.LastLoginAt)
             .HasColumnName("last_login_at");

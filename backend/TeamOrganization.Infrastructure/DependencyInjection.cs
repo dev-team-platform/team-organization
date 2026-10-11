@@ -21,6 +21,8 @@ using TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
 using TeamOrganization.Application.Models.Messaging.Publishing;
 using TeamOrganization.Infrastructure.Services.RabbitMq.Publishers;
 using TeamOrganization.Infrastructure.Services.RabbitMq.Consumers;
+using TeamOrganization.Application.Interfaces.Services.IdentityProviders;
+using TeamOrganization.Infrastructure.Services.IdentityProviders;
 
 namespace TeamOrganization.Infrastructure;
 
@@ -55,6 +57,38 @@ public static class DependencyInjection
             .Validate(options => options.JitterToMsSeconds >= 0, "AuditLog JitterToMsSeconds must be greater than or equal to 0.")
             .Validate(options => options.JitterFromMsSeconds <= options.JitterToMsSeconds, "AuditLog JitterFromMsSeconds must be less than or equal to JitterToMsSeconds.")
             .ValidateOnStart();
+
+        services
+            .AddOptions<AuthOptions>()
+            .BindConfiguration(AuthOptions.SectionName)
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.InternalJwt.Issuer),
+                "Auth:InternalJwt:Issuer is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.InternalJwt.Audience),
+                "Auth:InternalJwt:Audience is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.InternalJwt.PublicKeyPemPath),
+                "Auth:InternalJwt:PublicKeyPemPath is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.Authority),
+                "Auth:KeycloakForAdminApi:Authority is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.ClientId),
+                "Auth:KeycloakForAdminApi:ClientId is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.KeycloakForAdminApi.ClientSecret),
+                "Auth:KeycloakForAdminApi:ClientSecret is required.")
+            .ValidateOnStart();
+
+        services
+            .AddOptions<UserManagementOptions>()
+            .BindConfiguration(UserManagementOptions.SectionName)
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.DefaultPassword),
+                "UserManagement:DefaultPassword is required.")
+            .ValidateOnStart();
+
         return services;
     }
 
@@ -100,11 +134,11 @@ public static class DependencyInjection
 
         // Messaging Publishers  
         services.AddSingleton<
-            IMessagingPublisherHandler<OutboxEvent<SendNotificationEventModel>>,
-            OutboxEventPublisherHandler<SendNotificationEventModel>>();
+            IMessagingPublisher<OutboxEvent<SendNotificationEventModel>>,
+            OutboxEventPublisher<SendNotificationEventModel>>();
 
         // Messaging Consumers    
-        services.AddKeyedScoped<IMessagingConsumerHandler, UserLoggedInConsumer>("UserLoggedIn");
+        services.AddKeyedScoped<IMessagingConsumer, UserLoggedInConsumer>("UserLoggedIn");
 
         // Audit Log
         services.AddSingleton<IAuditLogBackgroundQueue, AuditLogBackgroundQueue>();
@@ -129,6 +163,9 @@ public static class DependencyInjection
         // Context
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+
+        // Identity Providers
+        services.AddSingleton<IIdentityProviderService, KeycloakService>();
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();

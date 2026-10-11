@@ -21,18 +21,20 @@ public class UserRepository : GenericRepository<User>, IUserRepository
     {
         var now = DateTimeOffset.UtcNow;
         var query = from u in _dbContext.Set<User>()
-                    join ur in _dbContext.Set<UserRole>() on u.Id equals ur.UserId
-                    join r in _dbContext.Set<Role>() on ur.RoleId equals r.Id
+                    join ur in _dbContext.Set<UserRole>()
+                        on u.Id equals ur.UserId into userRoles
+                    from ur in userRoles.DefaultIfEmpty()
+                    join r in _dbContext.Set<Role>()
+                        on ur.RoleId equals r.Id into roles
+                    from r in roles.DefaultIfEmpty()
                     join rp in _dbContext.Set<RolePermission>()
                         on r.Id equals rp.RoleId into rolePermissions
                     from rp in rolePermissions
-                        .Where(rolePermission => ur.EffectiveFrom <= now
-                            && (ur.EffectiveTo == null || ur.EffectiveTo > now))
-                        .DefaultIfEmpty()
                     join p in _dbContext.Set<Permission>()
                         on rp.PermissionId equals p.Id into permissions
                     from p in permissions.DefaultIfEmpty()
-                    where u.IdentitySubject == identitySubject
+                    where u.IdentitySubject == identitySubject && ur.EffectiveFrom <= now
+                            && (ur.EffectiveTo == null || ur.EffectiveTo > now)
                     select new
                     {
                         User = u,
@@ -52,6 +54,7 @@ public class UserRepository : GenericRepository<User>, IUserRepository
         return new GetCurrentUserResponseModel
         {
             Id = result.User.Id,
+            IdentitySubject = result.User.IdentitySubject,
             EmployeeCode = result.User.EmployeeCode,
             Username = result.User.Username,
             Email = result.User.Email,
@@ -59,6 +62,8 @@ public class UserRepository : GenericRepository<User>, IUserRepository
             LastName = result.User.LastName,
             DisplayName = result.User.DisplayName,
             AvatarUrl = result.User.AvatarUrl,
+            Gender = result.User.Gender,
+            BirthDate = result.User.BirthDate,
             LastLoginAt = result.User.LastLoginAt,
             RoleName = result.RoleName,
             PermissionCodes =
@@ -75,7 +80,16 @@ public class UserRepository : GenericRepository<User>, IUserRepository
         FilterQuery<GetAllUsersResponseModelItem> query,
         CancellationToken cancellationToken = default)
     {
+        var now = DateTimeOffset.UtcNow;
         var users = from user in _dbContext.Set<User>()
+                    join ur in _dbContext.Set<UserRole>()
+                        on user.Id equals ur.UserId into userRoles
+                    from ur in userRoles.DefaultIfEmpty()
+                    join r in _dbContext.Set<Role>()
+                        on ur.RoleId equals r.Id into roles
+                    from r in roles.DefaultIfEmpty()
+                    where ur == null || (ur.EffectiveFrom <= now
+                        && (ur.EffectiveTo == null || ur.EffectiveTo > now))
                     select new GetAllUsersResponseModelItem
                     {
                         Id = user.Id,
@@ -85,8 +99,11 @@ public class UserRepository : GenericRepository<User>, IUserRepository
                         FirstName = user.FirstName,
                         LastName = user.LastName,
                         DisplayName = user.DisplayName,
+                        RoleName = r.DisplayName,
                         AvatarUrl = user.AvatarUrl,
                         Status = user.Status,
+                        Gender = user.Gender,
+                        BirthDate = user.BirthDate,
                         LastLoginAt = user.LastLoginAt
                     };
 

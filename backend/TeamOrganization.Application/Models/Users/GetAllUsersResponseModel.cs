@@ -1,5 +1,5 @@
 using TeamOrganization.Application.Models.Common;
-using TeamOrganization.Domain.Enums;
+using TeamOrganization.Domain.Enums.Users;
 
 namespace TeamOrganization.Application.Models.Users;
 
@@ -27,7 +27,10 @@ public class GetAllUsersResponseModelItem
     public string FirstName { get; init; } = null!;
     public string? LastName { get; init; }
     public string DisplayName { get; init; } = null!;
+    public string? RoleName { get; init; }
     public string? AvatarUrl { get; init; }
     public UserStatus Status { get; init; }
+    public UserGender Gender { get; init; }
+    public DateOnly? BirthDate { get; init; }
     public DateTimeOffset? LastLoginAt { get; init; }
 }

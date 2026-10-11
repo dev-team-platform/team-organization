@@ -7,7 +7,7 @@ using TeamOrganization.Domain.Utils;
 
 namespace TeamOrganization.Infrastructure.Services.RabbitMq.Consumers;
 
-public sealed class UserLoggedInConsumer : IMessagingConsumerHandler
+public sealed class UserLoggedInConsumer : IMessagingConsumer
 {
     private const string ExpectedSource = "team-gateway";
     private const string ExpectedType = "user.logged-in.v1";

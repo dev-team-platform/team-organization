@@ -14,7 +14,10 @@ public class GetAllUsersRequest : FilterRequest<GetAllUsersResponseItem>
             .Map("firstName", x => x.FirstName)
             .Map("lastName", x => x.LastName)
             .Map("displayName", x => x.DisplayName)
+            .Map("roleName", x => x.RoleName)
             .Map("status", x => x.Status)
+            .Map("gender", x => x.Gender)
+            .Map("birthDate", x => x.BirthDate)
             .Map("lastLoginAt", x => x.LastLoginAt);
     }
 

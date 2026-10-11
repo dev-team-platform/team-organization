@@ -3,12 +3,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
-using TeamOrganization.Api.Options;
+using TeamOrganization.Application.Interfaces.Services.IdentityProviders;
+using TeamOrganization.Application.Models.IdentityProviders;
 using TeamOrganization.Domain.Exceptions;
+using TeamOrganization.Infrastructure.Options;
 
-namespace TeamOrganization.Api.Services;
+namespace TeamOrganization.Infrastructure.Services.IdentityProviders;
 
-public sealed class KeycloakService : IKeycloakService
+public sealed class KeycloakService : IIdentityProviderService
 {
     public const string HttpClientName = "KeycloakAdminApi";
     private static readonly TimeSpan TokenRefreshSkew = TimeSpan.FromSeconds(15);
@@ -79,7 +81,7 @@ public sealed class KeycloakService : IKeycloakService
 
     public async Task<string> CreateNewUserAsync(
         string accessToken,
-        KeycloakNewUser user,
+        IdentityProviderNewUserRequestModel user,
         string defaultPassword,
         CancellationToken cancellationToken = default)
     {
@@ -96,6 +98,7 @@ public sealed class KeycloakService : IKeycloakService
                 firstName = user.FirstName,
                 lastName = user.LastName,
                 enabled = true,
+                emailVerified = true,
                 credentials = new[]
                 {
                     new
@@ -128,6 +131,32 @@ public sealed class KeycloakService : IKeycloakService
         return identitySubject;
     }
 
+    public async Task DeleteUserAsync(
+        string accessToken,
+        string identitySubject,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            GetAdminUserEndpoint(identitySubject))
+        {
+            Headers =
+            {
+                Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
+            }
+        };
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var response = await client.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return;
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
     private Uri GetAdminUsersEndpoint()
     {
         var authority = new Uri(_authOptions.Value.KeycloakForAdminApi.Authority, UriKind.Absolute);
@@ -149,6 +178,14 @@ public sealed class KeycloakService : IKeycloakService
         };
 
         return builder.Uri;
+    }
+
+    private Uri GetAdminUserEndpoint(string identitySubject)
+    {
+        var usersEndpoint = GetAdminUsersEndpoint();
+        return new Uri(
+            $"{usersEndpoint.AbsoluteUri.TrimEnd('/')}/{Uri.EscapeDataString(identitySubject)}",
+            UriKind.Absolute);
     }
 
     private bool HasUsableToken() =>

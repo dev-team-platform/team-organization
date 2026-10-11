@@ -1,4 +1,4 @@
-using TeamOrganization.Domain.Enums;
+using TeamOrganization.Domain.Enums.Common;
 
 namespace TeamOrganization.Domain.Entities;
 

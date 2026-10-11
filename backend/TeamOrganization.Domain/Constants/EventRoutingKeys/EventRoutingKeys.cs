@@ -1,4 +1,4 @@
-namespace TeamOrganization.Application.Constants.EventRoutingKeys;
+namespace TeamOrganization.Domain.Constants.EventRoutingKeys;
 
 public class EventRoutingKeys
 {

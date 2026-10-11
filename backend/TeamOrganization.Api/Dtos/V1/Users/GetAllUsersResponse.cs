@@ -1,5 +1,6 @@
 using TeamOrganization.Api.Dtos.Common;
 using TeamOrganization.Application.Models.Users;
+using TeamOrganization.Domain.Utils;
 
 namespace TeamOrganization.Api.Dtos.V1.Users;
 
@@ -27,8 +28,11 @@ public class GetAllUsersResponseItem
     public string FirstName { get; init; } = null!;
     public string? LastName { get; init; }
     public string DisplayName { get; init; } = null!;
+    public string? RoleName { get; init; }
     public string? AvatarUrl { get; init; }
     public string Status { get; init; } = null!;
+    public string Gender { get; init; } = null!;
+    public DateOnly? BirthDate { get; init; }
     public DateTimeOffset? LastLoginAt { get; init; }
 
     public static GetAllUsersResponseItem FromModel(GetAllUsersResponseModelItem modelItem)
@@ -42,8 +46,11 @@ public class GetAllUsersResponseItem
             FirstName = modelItem.FirstName,
             LastName = modelItem.LastName,
             DisplayName = modelItem.DisplayName,
+            RoleName = modelItem.RoleName,
             AvatarUrl = modelItem.AvatarUrl,
-            Status = modelItem.Status.ToString(),
+            Status = EnumUtils.ToString(modelItem.Status),
+            Gender = EnumUtils.ToString(modelItem.Gender),
+            BirthDate = modelItem.BirthDate,
             LastLoginAt = modelItem.LastLoginAt
         };
     }

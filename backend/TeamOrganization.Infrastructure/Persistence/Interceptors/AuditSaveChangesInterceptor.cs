@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using TeamOrganization.Domain.Entities;
 using TeamOrganization.Domain.Enums;
 using TeamOrganization.Application.Interfaces.Services.Audit;
+using TeamOrganization.Domain.Enums.Common;
 
 namespace TeamOrganization.Infrastructure.Persistence.Interceptors;
 

@@ -1,6 +1,6 @@
 namespace TeamOrganization.Application.Interfaces.Services.Messaging;
 
-public interface IMessagingConsumerHandler
+public interface IMessagingConsumer
 {
     Task HandleAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
 }

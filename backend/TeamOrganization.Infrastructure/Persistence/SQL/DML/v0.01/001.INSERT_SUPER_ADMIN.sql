@@ -27,18 +27,22 @@ INSERT INTO users (
     last_name,
     display_name,
     status,
+    gender,
+    birth_date,
     created_at
 )
 VALUES (
     '019fe588-d374-7cbf-a1a5-9d712a88c49d',
     'f0a27760-2c4b-42cd-9008-c328772d0eb8',
-    'SA0001',
+    'SA-00001',
     'tp-super-admin-1',
     'tp-super-admin-1@team-platform.local',
     'Super Admin 1',
     NULL,
     'Super Admin 1',
     'Active',
+    'Male',
+    '2000-01-01'
     CURRENT_TIMESTAMP
 );
 

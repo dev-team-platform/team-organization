@@ -6,13 +6,13 @@ using TeamOrganization.Domain.Utils;
 
 namespace TeamOrganization.Infrastructure.Services.RabbitMq.Publishers;
 
-public sealed class OutboxEventPublisherHandler<TModel> : IMessagingPublisherHandler<OutboxEvent<TModel>>
+public sealed class OutboxEventPublisher<TModel> : IMessagingPublisher<OutboxEvent<TModel>>
 {
     private const string PublisherName = "OrganizationEvents";
     private readonly RabbitMqPublisherHostedService _publisher;
     private readonly Serilog.ILogger _logger;
 
-    public OutboxEventPublisherHandler(
+    public OutboxEventPublisher(
         RabbitMqPublisherHostedService publisher,
         Serilog.ILogger logger)
     {

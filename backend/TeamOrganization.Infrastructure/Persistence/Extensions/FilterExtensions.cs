@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Linq.Expressions;
-using TeamOrganization.Application.Enums;
 using TeamOrganization.Application.Models.Common;
 using TeamOrganization.Domain.Exceptions;
 using TeamOrganization.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
+using TeamOrganization.Domain.Enums.Common;
 
 namespace TeamOrganization.Infrastructure.Persistence.Extensions;
 
@@ -129,7 +129,7 @@ public static class FilterExtensions
                     );
                     var startsWithExpression = BuildStringOperation(
                         selectorBody,
-                        nameof(string.StartsWith),
+                        nameof(string.Contains),
                         searchGlobalText
                     );
                     var nullGuard = GetNullGuard(selectorBody);

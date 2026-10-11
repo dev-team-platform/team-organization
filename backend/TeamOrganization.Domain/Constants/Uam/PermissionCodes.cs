@@ -1,4 +1,4 @@
-namespace TeamOrganization.Domain.Constants;
+namespace TeamOrganization.Domain.Constants.Uam;
 
 public static class PermissionCodes
 {
