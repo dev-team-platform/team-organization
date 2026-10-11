@@ -1,5 +1,5 @@
 import { JsonPipe } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { AuthService } from '../../core/services/auth-service';
 import { ClientCorrelationService } from '../../core/services/client-correlation-service';
 
@@ -8,6 +8,7 @@ import { ClientCorrelationService } from '../../core/services/client-correlation
   imports: [JsonPipe],
   templateUrl: './home.html',
   styleUrl: './home.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Home implements OnInit {
   private readonly authService = inject(AuthService);

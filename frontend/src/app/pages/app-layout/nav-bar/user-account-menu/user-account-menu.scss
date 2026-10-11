@@ -1,0 +1,62 @@
+:host {
+  display: block;
+  height: 0;
+}
+
+.to-user-account-menu {
+  &__content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tp-space-1);
+    padding: var(--tp-space-1) 0;
+  }
+
+  &__display-name,
+  &__username {
+    margin: 0;
+  }
+
+  &__display-name {
+    color: var(--tp-color-text-primary);
+    font-size: var(--tp-text-md);
+    font-weight: 600;
+  }
+
+  &__username {
+    color: var(--tp-color-text-secondary);
+    font-size: var(--tp-text-sm);
+  }
+
+  &__divider {
+    margin: var(--tp-space-3) calc(-1 * var(--tp-space-1));
+  }
+
+  &__actions {
+    display: grid;
+    gap: var(--tp-space-1);
+  }
+}
+
+::ng-deep .to-user-account-menu__actions > tp-text-button {
+  display: block;
+  width: 100%;
+}
+
+::ng-deep .to-user-account-menu__actions > tp-text-button .tp-text-button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+::ng-deep .to-user-account-menu__actions > tp-text-button .mdc-button__label,
+::ng-deep .to-user-account-menu__actions > tp-text-button .tp-text-button__content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+}

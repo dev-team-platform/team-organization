@@ -1,10 +1,25 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  Signal,
+  signal,
+} from '@angular/core';
 import { MatTooltip } from '@angular/material/tooltip';
-import { IsActiveMatchOptions, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  isActive,
+  IsActiveMatchOptions,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+} from '@angular/router';
 import { TpTextButton } from '@team-platform/ui';
 import { HasAccess } from '../../../core/directives/has-access';
-import { Role } from '../../../core/enums/role';
-import { CurrentUser } from '../../../core/models/auth/current-user';
+import { RoleName } from '../../../core/enums/uam';
+import { AuthService } from '../../../core/services/auth-service';
 
 interface SideBarNavigationItem {
   label: string;
@@ -23,13 +38,13 @@ interface SideBarNavigationItem {
   },
   templateUrl: './side-bar.html',
   styleUrl: './side-bar.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SideBar {
-  readonly collapsed = input(false);
-  readonly currentUser = input<CurrentUser | null>(null);
-  readonly expandRequested = output<void>();
-
+  private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  readonly currentUser = computed(() => this.authService.currentUser());
+
   protected readonly expandedDropdownLabels = signal<ReadonlySet<string>>(new Set());
   private readonly childRouteMatchOptions: IsActiveMatchOptions = {
     paths: 'exact',
@@ -37,6 +52,10 @@ export class SideBar {
     fragment: 'ignored',
     matrixParams: 'ignored',
   };
+  private readonly childRouteActiveSignals = new Map<string, Signal<boolean>>();
+
+  readonly collapsed = input(false);
+  readonly expandRequested = output<void>();
 
   protected readonly navigationItems = computed<SideBarNavigationItem[]>(() => [
     {
@@ -76,7 +95,7 @@ export class SideBar {
 
   private hasAdminAccess(): boolean {
     const roleName = this.currentUser()?.roleName;
-    return roleName === Role.SuperAdmin || roleName === Role.Admin;
+    return roleName === RoleName.SuperAdmin || roleName === RoleName.Admin;
   }
 
   protected isDropdownExpanded(item: SideBarNavigationItem): boolean {
@@ -84,11 +103,18 @@ export class SideBar {
   }
 
   protected isDropdownActive(item: SideBarNavigationItem): boolean {
-    return item.children.some(
-      (child) =>
-        child.route !== null &&
-        this.router.isActive(this.router.parseUrl(child.route), this.childRouteMatchOptions),
-    );
+    return item.children.some((child) => child.route !== null && this.isRouteActive(child.route));
+  }
+
+  private isRouteActive(route: string): boolean {
+    let routeActive = this.childRouteActiveSignals.get(route);
+
+    if (!routeActive) {
+      routeActive = isActive(route, this.router, this.childRouteMatchOptions);
+      this.childRouteActiveSignals.set(route, routeActive);
+    }
+
+    return routeActive();
   }
 
   protected handleDropdownClick(item: SideBarNavigationItem): void {

@@ -1,45 +1,50 @@
 import { Routes } from '@angular/router';
-import { Role } from './core/enums/role';
+
+import { RoleName } from './core/enums/uam';
 import { authGuard } from './core/guards/auth-guard';
 import { authorizationGuard } from './core/guards/authorization-guard';
 import { guestGuard } from './core/guards/guest-guard';
-import { AppLayout } from './pages/app-layout/app-layout';
+
 import { Login } from './pages/login/login';
 import { NotFound } from './pages/not-found/not-found';
 
 export const routes: Routes = [
+  // Public routes
   {
     path: 'auth/login',
-    canActivate: [guestGuard],
     component: Login,
+    canActivate: [guestGuard],
   },
+
+  // Protected routes
   {
     path: '',
     canActivate: [authGuard],
-    component: AppLayout,
-    data: {
-      breadcrumb: 'Home',
-      breadcrumbUrl: '/home',
-    },
+    canActivateChild: [authGuard],
     children: [
       {
         path: '',
-        redirectTo: 'home',
         pathMatch: 'full',
+        redirectTo: 'home',
       },
       {
         path: 'home',
+        data: {
+          breadcrumb: 'Home',
+        },
         loadComponent: () => import('./pages/home/home').then((m) => m.Home),
       },
       {
         path: 'admin-settings',
-        data: { breadcrumb: 'Admin Settings' },
+        data: {
+          breadcrumb: 'Admin Settings',
+        },
         children: [
           {
             path: 'users-management',
             canActivate: [authorizationGuard],
             data: {
-              roles: [Role.SuperAdmin, Role.Admin],
+              roles: [RoleName.SuperAdmin, RoleName.Admin],
               breadcrumb: 'Users Management',
             },
             loadComponent: () =>
@@ -52,7 +57,6 @@ export const routes: Routes = [
       {
         path: '**',
         component: NotFound,
-        data: { breadcrumb: 'Not Found' },
       },
     ],
   },

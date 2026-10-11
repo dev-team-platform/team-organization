@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
@@ -13,6 +13,7 @@ interface BreadcrumbItem {
   imports: [RouterLink],
   templateUrl: './breadcrumb.html',
   styleUrl: './breadcrumb.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Breadcrumb {
   protected readonly breadcrumbs = signal<BreadcrumbItem[]>([]);

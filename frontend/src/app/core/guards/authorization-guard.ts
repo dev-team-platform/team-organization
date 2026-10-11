@@ -1,7 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { Permission } from '../enums/permission';
-import { Role } from '../enums/role';
+import { Permission, RoleName } from '../enums/uam';
 import { AuthService } from '../services/auth-service';
 
 export const authorizationGuard: CanActivateFn = (route) => {
@@ -14,7 +13,7 @@ export const authorizationGuard: CanActivateFn = (route) => {
     return router.createUrlTree(['/page-not-found']);
   }
 
-  const requiredRoles = (route.data['roles'] as Role[] | undefined) ?? [];
+  const requiredRoles = (route.data['roles'] as RoleName[] | undefined) ?? [];
 
   const requiredPermissions = (route.data['permissions'] as Permission[] | undefined) ?? [];
 

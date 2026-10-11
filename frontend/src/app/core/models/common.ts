@@ -1,6 +1,7 @@
-import { FilterOperator, TemporalPartType } from '../../enums/filter';
+import { TpChipColor } from '@team-platform/ui';
+import { FilterOperator, TemporalPartType } from '../enums/common';
 
-export { FilterOperator, TemporalPartType } from '../../enums/filter';
+export { FilterOperator, TemporalPartType } from '../enums/common';
 
 export interface FilterCriterionRequest {
   fieldName: string;
@@ -36,4 +37,14 @@ export interface FilterResult<TItem> {
   totalPages: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+}
+
+export interface ErrorResponse {
+  message: string;
+  details: Record<string, any> | null;
+}
+
+export interface ChipMapping {
+  color: TpChipColor;
+  displayValue: string;
 }

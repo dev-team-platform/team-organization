@@ -1,21 +1,22 @@
-import { HttpErrorResponse } from '@angular/common/http';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
-import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   TpButton,
   TpChip,
   TpInput,
   TpInputAutocompleteMultiselect,
   TpInputDatePicker,
+  TpInputValue,
   TpSearchBar,
   TpSelectOption,
   TpTable,
@@ -26,20 +27,22 @@ import {
   TpTableFilterContent,
   TpTablePageChange,
   TpTableSort,
-  TpInputValue,
 } from '@team-platform/ui';
-import { FilterOperator, TemporalPartType } from '../../../core/enums/filter';
-import { FilterCriterionRequest } from '../../../core/models/common/filter';
-import { GetUsersRequest, UserListItem } from '../../../core/models/users/get-users';
+import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
+import { DEFAULT_CHIP_MAPPING } from '../../../core/constants/common';
+import { FilterOperator, TemporalPartType } from '../../../core/enums/common';
+import { RoleName } from '../../../core/enums/uam';
+import { UserGender, UserStatus } from '../../../core/enums/users';
+import { ChipMapping, FilterCriterionRequest } from '../../../core/models/common';
+import { GetUsersRequest, UserListItem } from '../../../core/models/users';
+import { ClientCorrelationService } from '../../../core/services/client-correlation-service';
+import { ToastService } from '../../../core/services/toast-service';
 import { UserService } from '../../../core/services/user-service';
+import { isNotEmpty, resolveErrorMessage } from '../../../core/utils/common';
+import { NewUserDialog } from './new-user-dialog/new-user-dialog';
 
 type UserFilterField =
-  | 'employeeCode'
-  | 'firstName'
-  | 'lastName'
-  | 'displayName'
-  | 'username'
-  | 'email';
+  'employeeCode' | 'firstName' | 'lastName' | 'displayName' | 'username' | 'email';
 
 @Component({
   selector: 'app-users-management',
@@ -53,6 +56,8 @@ type UserFilterField =
     TpTable,
     TpTableCellContent,
     TpTableFilterContent,
+    DatePipe,
+    NewUserDialog,
   ],
   templateUrl: './users-management.html',
   styleUrl: './users-management.scss',
@@ -60,9 +65,12 @@ type UserFilterField =
 })
 export class UsersManagement implements OnInit {
   private readonly userService = inject(UserService);
+  private readonly clientCorrelationService = inject(ClientCorrelationService);
+  private readonly toastService = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly filterChanges = new Subject<void>();
   private readonly userRequests = new Subject<GetUsersRequest>();
+  private lastUsersRequest: GetUsersRequest | null = null;
 
   readonly users = signal<UserListItem[]>([]);
   readonly totalUsers = signal(0);
@@ -70,12 +78,54 @@ export class UsersManagement implements OnInit {
   readonly pageSize = signal(20);
   readonly globalSearch = signal('');
   readonly textFilters = signal<Partial<Record<UserFilterField, string>>>({});
+  readonly roleFilters = signal<string[]>([]);
   readonly statusFilters = signal<string[]>([]);
+  readonly genderFilters = signal<string[]>([]);
   readonly lastLoginDateFilter = signal<Date | null>(null);
+  readonly birthDateFilter = signal<Date | null>(null);
   readonly loading = signal(true);
   readonly loadError = signal<string | null>(null);
+  readonly newUserDialogOpen = signal(false);
+  readonly statusOptions = [UserStatus.Active, UserStatus.Inactive, UserStatus.Pending];
+  readonly genderOptions = [UserGender.Male, UserGender.Female, UserGender.Unknown];
+  readonly roleOptions = [RoleName.SuperAdmin, RoleName.Admin, RoleName.Employee];
 
-  readonly statusOptions = ['Active', 'Inactive'];
+  readonly statusMapping: Record<UserStatus, ChipMapping> = {
+    [UserStatus.Active]: { color: 'green', displayValue: UserStatus.Active.toUpperCase() },
+    [UserStatus.Inactive]: { color: 'red', displayValue: UserStatus.Inactive.toUpperCase() },
+    [UserStatus.Pending]: { color: 'amber', displayValue: UserStatus.Pending.toUpperCase() },
+  };
+
+  readonly genderMapping: Record<UserGender, ChipMapping> = {
+    [UserGender.Male]: { color: 'blue', displayValue: UserGender.Male.toUpperCase() },
+    [UserGender.Female]: { color: 'yellow', displayValue: UserGender.Female.toUpperCase() },
+    [UserGender.Unknown]: { color: 'gray', displayValue: UserGender.Unknown.toUpperCase() },
+  };
+
+  readonly roleMapping: Record<RoleName, ChipMapping> = {
+    [RoleName.SuperAdmin]: { color: 'purple', displayValue: 'SUPER ADMIN' },
+    [RoleName.Admin]: { color: 'blue', displayValue: 'ADMIN' },
+    [RoleName.Employee]: { color: 'gray', displayValue: 'EMPLOYEE' },
+  };
+
+  getStatus(user: any): ChipMapping {
+    const status = user['status'] as UserStatus;
+    return this.statusMapping[status] ?? DEFAULT_CHIP_MAPPING;
+  }
+
+  getRole(user: any): ChipMapping {
+    const role = user['roleName'] as RoleName;
+    return this.roleMapping[role] ?? DEFAULT_CHIP_MAPPING;
+  }
+
+  getGender(user: any): ChipMapping {
+    const gender = user['gender'] as UserGender;
+    return this.genderMapping[gender] ?? this.genderMapping[UserGender.Unknown];
+  }
+
+  protected dateOnlyAsUtc(value: string): string {
+    return `${value}T00:00:00Z`;
+  }
 
   private readonly activeSort = signal<TpTableSort>({
     key: 'displayName',
@@ -88,15 +138,12 @@ export class UsersManagement implements OnInit {
     { key: 'lastName', title: 'Last Name', sortable: true, width: '150px' },
     { key: 'displayName', title: 'Display Name', sortable: true, width: '180px' },
     { key: 'username', title: 'Username', sortable: true, width: '160px' },
-    { key: 'email', title: 'Email', sortable: true, width: '220px' },
-    { key: 'status', title: 'Status', sortable: true, width: '130px' },
-    {
-      key: 'lastLoginAt',
-      title: 'Last Login At',
-      sortable: true,
-      width: '190px',
-      value: (user) => this.formatDateTime(user.lastLoginAt),
-    },
+    { key: 'email', title: 'Email', sortable: true, width: '250px', maxCellContentLength: 255 },
+    { key: 'roleName', title: 'Role', sortable: true, width: '200px' },
+    { key: 'status', title: 'Status', sortable: true, width: '200px' },
+    { key: 'gender', title: 'Gender', sortable: true, width: '140px' },
+    { key: 'birthDate', title: 'Birth Date', sortable: true, width: '150px' },
+    { key: 'lastLoginAt', title: 'Last Login At', sortable: true, width: '150px' },
   ];
 
   readonly tableData = computed<TpTableData<UserListItem>>(() => ({
@@ -133,6 +180,7 @@ export class UsersManagement implements OnInit {
         switchMap((request) => {
           this.loading.set(true);
           this.loadError.set(null);
+          this.clientCorrelationService.startAction();
 
           return this.userService.getUsers(request).pipe(
             tap((result) => {
@@ -142,15 +190,28 @@ export class UsersManagement implements OnInit {
             catchError((error: unknown) => {
               this.users.set([]);
               this.totalUsers.set(0);
-              this.loadError.set(this.getErrorMessage(error, 'Could not load users.'));
+              this.loadError.set(resolveErrorMessage(error));
               return EMPTY;
             }),
-            finalize(() => this.loading.set(false)),
+            finalize(() => {
+              this.loading.set(false);
+              this.clientCorrelationService.completeAction();
+            }),
           );
         }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
+
+    effect(() => {
+      const error = this.loadError();
+      if (isNotEmpty(error)) {
+        this.toastService.enqueue({
+          type: 'error',
+          content: error!,
+        });
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -177,8 +238,23 @@ export class UsersManagement implements OnInit {
     this.scheduleFilteredLoad();
   }
 
+  onGenderFilterChange(values: TpSelectOption[]): void {
+    this.genderFilters.set(values.filter((value): value is string => typeof value === 'string'));
+    this.scheduleFilteredLoad();
+  }
+
+  onRoleFilterChange(values: TpSelectOption[]): void {
+    this.roleFilters.set(values.filter((value): value is string => typeof value === 'string'));
+    this.scheduleFilteredLoad();
+  }
+
   onLastLoginDateChange(value: Date | null): void {
     this.lastLoginDateFilter.set(value);
+    this.scheduleFilteredLoad();
+  }
+
+  onBirthDateChange(value: Date | null): void {
+    this.birthDateFilter.set(value);
     this.scheduleFilteredLoad();
   }
 
@@ -199,6 +275,18 @@ export class UsersManagement implements OnInit {
     this.loadUsers();
   }
 
+  openNewUserDialog(): void {
+    this.newUserDialogOpen.set(true);
+  }
+
+  handleUserCreated(): void {
+    if (this.lastUsersRequest) {
+      this.userRequests.next(this.lastUsersRequest);
+    } else {
+      this.loadUsers();
+    }
+  }
+
   textFilterValue(field: string): string {
     return this.isUserFilterField(field) ? (this.textFilters()[field] ?? '') : '';
   }
@@ -207,32 +295,15 @@ export class UsersManagement implements OnInit {
     return this.columns.find((column) => column.key === key)?.title ?? key;
   }
 
-  formatDateTime(value: string | null): string {
-    if (!value) return '—';
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '—';
-
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date);
-  }
-
   private scheduleFilteredLoad(): void {
     this.currentPage.set(1);
     this.filterChanges.next();
   }
 
   private isUserFilterField(field: string): field is UserFilterField {
-    return [
-      'employeeCode',
-      'firstName',
-      'lastName',
-      'displayName',
-      'username',
-      'email',
-    ].includes(field);
+    return ['employeeCode', 'firstName', 'lastName', 'displayName', 'username', 'email'].includes(
+      field,
+    );
   }
 
   private loadUsers(): void {
@@ -251,6 +322,7 @@ export class UsersManagement implements OnInit {
       ],
     };
 
+    this.lastUsersRequest = request;
     this.userRequests.next(request);
   }
 
@@ -272,6 +344,24 @@ export class UsersManagement implements OnInit {
       });
     }
 
+    const genders = this.genderFilters();
+    if (genders.length > 0) {
+      criteria.push({
+        fieldName: 'gender',
+        operator: FilterOperator.Equals,
+        values: genders,
+      });
+    }
+
+    const roles = this.roleFilters();
+    if (roles.length > 0) {
+      criteria.push({
+        fieldName: 'roleName',
+        operator: FilterOperator.Equals,
+        values: roles,
+      });
+    }
+
     const date = this.lastLoginDateFilter();
     if (date) {
       const dateAtUtcMidnight = new Date(
@@ -283,20 +373,26 @@ export class UsersManagement implements OnInit {
         values: [dateAtUtcMidnight.toISOString()],
         dateTimeFilterOptions: {
           offsetMinutes: -date.getTimezoneOffset(),
-          temporalPartType: TemporalPartType.Date,
+          temporalPartType: TemporalPartType.None,
         },
+      });
+    }
+
+    const birthDate = this.birthDateFilter();
+    if (birthDate) {
+      criteria.push({
+        fieldName: 'birthDate',
+        operator: FilterOperator.Equals,
+        values: [this.formatDateOnly(birthDate)],
       });
     }
 
     return criteria;
   }
 
-  private getErrorMessage(error: unknown, fallback: string): string {
-    if (error instanceof HttpErrorResponse) {
-      const apiMessage = error.error?.message;
-      if (typeof apiMessage === 'string' && apiMessage.trim()) return apiMessage;
-    }
-
-    return fallback;
+  private formatDateOnly(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
   }
 }

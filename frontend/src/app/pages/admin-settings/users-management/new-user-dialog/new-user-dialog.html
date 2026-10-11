@@ -1,0 +1,103 @@
+<app-title-dialog
+  [(open)]="open"
+  ariaLabel="Create a new user"
+  width="min(92vw, 860px)"
+  [title]="titleTemplate"
+  [bodyTemplate]="bodyTemplate"
+  [footerTemplate]="footerTemplate"
+>
+</app-title-dialog>
+
+<ng-template #titleTemplate>
+  <span class="new-user-dialog__title">New User</span>
+</ng-template>
+
+<ng-template #bodyTemplate>
+  <div class="new-user-dialog__form-grid">
+    <div class="new-user-dialog__column">
+      <tp-input title="First Name" [formField]="userForm.firstName"></tp-input>
+
+      <tp-input title="Last Name" [formField]="userForm.lastName"></tp-input>
+
+      <tp-input title="Display Name" [formField]="userForm.displayName"></tp-input>
+
+      <tp-input-date-picker
+        title="Birth Date"
+        dateFormat="dd-MMM-yyyy"
+        [formField]="userForm.birthDate"
+      ></tp-input-date-picker>
+
+      <div class="new-user-dialog__gender-field" role="radiogroup" aria-label="Gender">
+        <div class="new-user-dialog__gender-options">
+          <span class="new-user-dialog__gender-label">
+            Gender<span class="new-user-dialog__required-marker" aria-hidden="true">*</span>:
+          </span>
+          <tp-radio
+            name="user-gender"
+            [value]="genders.Male"
+            [checked]="selectedGender() === genders.Male"
+            [disabled]="isCreating()"
+            ariaLabel="Male"
+            (checkedChange)="onGenderChecked(genders.Male, $event)"
+          >
+            Male
+          </tp-radio>
+          <tp-radio
+            name="user-gender"
+            [value]="genders.Female"
+            [checked]="selectedGender() === genders.Female"
+            [disabled]="isCreating()"
+            ariaLabel="Female"
+            (checkedChange)="onGenderChecked(genders.Female, $event)"
+          >
+            Female
+          </tp-radio>
+          <tp-radio
+            name="user-gender"
+            [value]="genders.Unknown"
+            [checked]="selectedGender() === genders.Unknown"
+            [disabled]="isCreating()"
+            ariaLabel="Unknown"
+            (checkedChange)="onGenderChecked(genders.Unknown, $event)"
+          >
+            Unknown
+          </tp-radio>
+        </div>
+      </div>
+    </div>
+
+    <div class="new-user-dialog__column">
+      <tp-input title="Username" [formField]="userForm.username"></tp-input>
+
+      <tp-input title="Email" [formField]="userForm.email"></tp-input>
+
+      <tp-input title="Employee Code" [formField]="userForm.employeeCode"></tp-input>
+
+      <tp-input-singleselect
+        title="Role"
+        ariaLabel="Role"
+        [options]="roleOptions()"
+        [displayWith]="displayRoleName"
+        [formField]="userForm.role"
+      ></tp-input-singleselect>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #footerTemplate>
+  <div class="new-user-dialog__footer-actions">
+    <tp-button
+      color="blue"
+      variant="filled"
+      height="36px"
+      [disabled]="isCreating()"
+      (onClick)="createUser()"
+    >
+      Create
+    </tp-button>
+
+    <tp-button color="gray" variant="outlined" height="36px" (onClick)="cancel()">
+      Cancel
+    </tp-button>
+  </div>
+</ng-template>

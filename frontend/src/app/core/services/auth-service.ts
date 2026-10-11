@@ -1,19 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { catchError, map, Observable, of, tap } from 'rxjs';
-import { CurrentUser } from '../models/auth/current-user';
-
-export const AUTH_ENDPOINTS = {
-  LOGIN: '/api/v1/auth/login',
-  LOGOUT: '/api/v1/auth/logout',
-  CSRF: '/auth/csrf',
-};
+import { CurrentUser, LogoutRequest, LogoutResponse } from '../models/auth';
+import { AppHttpContext } from './http-context';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
   private readonly httpClient = inject(HttpClient);
+  private readonly appHttpContext = inject(AppHttpContext);
 
   private readonly _currentUser = signal<CurrentUser | null>(null);
 
@@ -22,6 +18,7 @@ export class AuthService {
   checkAuthentication(): Observable<boolean> {
     return this.httpClient
       .get<CurrentUser>('users/me', {
+        context: this.appHttpContext.baseContext,
         withCredentials: true,
       })
       .pipe(
@@ -37,16 +34,20 @@ export class AuthService {
   }
 
   initializeCsrf(): Observable<void> {
-    return this.httpClient.get<void>(AUTH_ENDPOINTS.CSRF, {
+    return this.httpClient.get<void>('csrf', {
+      context: this.appHttpContext.authContext,
       withCredentials: true,
     });
   }
 
   login(returnUrl: string = '/'): void {
-    window.location.href = AUTH_ENDPOINTS.LOGIN + '?returnUrl=' + encodeURIComponent(returnUrl);
+    window.location.href = '/api/v1/auth/login' + '?returnUrl=' + encodeURIComponent(returnUrl);
   }
 
-  logout(): void {
-    window.location.href = AUTH_ENDPOINTS.LOGOUT;
+  logout(req: LogoutRequest): Observable<LogoutResponse> {
+    return this.httpClient.post<LogoutResponse>('logout', req, {
+      context: this.appHttpContext.authContext,
+      withCredentials: true,
+    });
   }
 }
