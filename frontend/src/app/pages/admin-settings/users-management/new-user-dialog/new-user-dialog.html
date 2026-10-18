@@ -9,12 +9,12 @@
 </app-title-dialog>
 
 <ng-template #titleTemplate>
-  <span class="new-user-dialog__title">New User</span>
+  <span class="to-new-user-dialog__title">New User</span>
 </ng-template>
 
 <ng-template #bodyTemplate>
-  <div class="new-user-dialog__form-grid">
-    <div class="new-user-dialog__column">
+  <div class="to-new-user-dialog__form-grid">
+    <div class="to-new-user-dialog__column">
       <tp-input title="First Name" [formField]="userForm.firstName"></tp-input>
 
       <tp-input title="Last Name" [formField]="userForm.lastName"></tp-input>
@@ -27,10 +27,10 @@
         [formField]="userForm.birthDate"
       ></tp-input-date-picker>
 
-      <div class="new-user-dialog__gender-field" role="radiogroup" aria-label="Gender">
-        <div class="new-user-dialog__gender-options">
-          <span class="new-user-dialog__gender-label">
-            Gender<span class="new-user-dialog__required-marker" aria-hidden="true">*</span>:
+      <div class="to-new-user-dialog__gender-field" role="radiogroup" aria-label="Gender">
+        <div class="to-new-user-dialog__gender-options">
+          <span class="to-new-user-dialog__gender-label">
+            Gender<span class="to-new-user-dialog__required-marker" aria-hidden="true">*</span>:
           </span>
           <tp-radio
             name="user-gender"
@@ -66,10 +66,20 @@
       </div>
     </div>
 
-    <div class="new-user-dialog__column">
+    <div class="to-new-user-dialog__column">
       <tp-input title="Username" [formField]="userForm.username"></tp-input>
 
-      <tp-input title="Email" [formField]="userForm.email"></tp-input>
+      <div class="to-new-user-dialog__email-field">
+        <div class="to-new-user-dialog__email-input">
+          <tp-input
+            title="Email"
+            [formField]="userForm.email"
+            width="100%"
+            (valueChange)="onEmailValueChange($event)"
+          ></tp-input>
+        </div>
+        <span class="to-new-user-dialog__email-domain">&#64;{{ emailDomain }}</span>
+      </div>
 
       <tp-input title="Employee Code" [formField]="userForm.employeeCode"></tp-input>
 
@@ -85,7 +95,7 @@
 </ng-template>
 
 <ng-template #footerTemplate>
-  <div class="new-user-dialog__footer-actions">
+  <div class="to-new-user-dialog__footer-actions">
     <tp-button
       color="blue"
       variant="filled"

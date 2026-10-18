@@ -11,7 +11,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TpDivider, TpPopoverMenu, TpTextButton } from '@team-platform/ui';
+import {
+  TpDivider,
+  TpPopoverMenu,
+  TpSkeleton,
+  TpSlideToggle,
+  TpTextButton,
+} from '@team-platform/ui';
 import { BELL_NOTIFICATION_TITLE } from '../../../../core/constants/notifications';
 import { NotificationItem } from '../../../../core/models/notifications';
 
@@ -54,23 +60,36 @@ function formatContentTemplate(content: string, data: unknown): string {
 
 @Component({
   selector: 'app-bell-notification-menu',
-  imports: [DatePipe, NgTemplateOutlet, RouterLink, TpDivider, TpPopoverMenu, TpTextButton],
+  imports: [
+    DatePipe,
+    NgTemplateOutlet,
+    RouterLink,
+    TpDivider,
+    TpPopoverMenu,
+    TpSkeleton,
+    TpSlideToggle,
+    TpTextButton,
+  ],
   templateUrl: './bell-notification-menu.html',
   styleUrl: './bell-notification-menu.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BellNotificationMenu {
   readonly open = model(false);
+  readonly isUnreadOnly = model(false);
   readonly origin = input<CdkOverlayOrigin | null>(null);
   readonly notifications = input<NotificationItem[]>([]);
+  readonly loading = input(false);
   readonly markAllReadDisabled = input(false);
   readonly markAsRead = output<string>();
   readonly markAllRead = output<void>();
   protected readonly canMarkAllRead = computed(
     () =>
+      !this.loading() &&
       !this.markAllReadDisabled() &&
       this.notifications().some((notification) => notification.isRead !== true),
   );
+  protected readonly skeletonItems = [0, 1, 2, 3, 4];
   private readonly defaultContentTemplate =
     viewChild.required<TemplateRef<NotificationContentContext>>('defaultContentTemplate');
 

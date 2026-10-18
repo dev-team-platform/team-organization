@@ -1,42 +1,59 @@
-.new-user-dialog__title {
+.to-new-user-dialog__title {
   font-weight: 700;
 }
 
-.new-user-dialog__form-grid {
+.to-new-user-dialog__form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--tp-space-6);
 }
 
-.new-user-dialog__column {
+.to-new-user-dialog__column {
   display: grid;
   min-width: 0;
   align-content: start;
   gap: var(--tp-space-6);
 }
 
-.new-user-dialog__gender-field {
+.to-new-user-dialog__email-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--tp-space-2);
+}
+
+.to-new-user-dialog__email-input {
+  width: 70%;
+  min-width: 0;
+}
+
+.to-new-user-dialog__email-domain {
+  color: var(--tp-color-gray-500);
+  white-space: nowrap;
+}
+
+.to-new-user-dialog__gender-field {
   display: grid;
   gap: var(--tp-space-2);
 }
 
-.new-user-dialog__gender-label {
+.to-new-user-dialog__gender-label {
   color: var(--tp-color-text-primary);
   font-weight: 500;
 }
 
-.new-user-dialog__required-marker {
+.to-new-user-dialog__required-marker {
   color: var(--tp-color-red-600);
 }
 
-.new-user-dialog__gender-options {
+.to-new-user-dialog__gender-options {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--tp-space-4);
 }
 
-.new-user-dialog__footer-actions {
+.to-new-user-dialog__footer-actions {
   display: flex;
   width: 100%;
   align-items: center;

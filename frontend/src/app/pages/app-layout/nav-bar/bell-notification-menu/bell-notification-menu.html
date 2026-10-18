@@ -4,17 +4,43 @@
   ariaLabel="Notifications"
   position="bottom-end"
   width="min(420px, 90vw)"
-  maxWidth="min(90vw, 420px)"
+  maxWidth="min(420px, 90vw)"
   maxHeight="min(600px, 80vh)"
 >
   <div class="to-bell-notification-menu">
     <header class="to-bell-notification-menu__header">
       <h2>Notifications</h2>
+      <tp-slide-toggle
+        class="to-bell-notification-menu__unread-toggle"
+        ariaLabel="View unread only"
+        width="52px"
+        height="22px"
+        [(checked)]="isUnreadOnly"
+      >
+        View unread only
+      </tp-slide-toggle>
     </header>
 
     <tp-divider class="to-bell-notification-menu__divider"></tp-divider>
 
-    @if (notifications().length === 0) {
+    @if (loading()) {
+      <div
+        class="to-bell-notification-menu__loading-list"
+        aria-label="Loading notifications"
+        aria-busy="true"
+      >
+        @for (skeleton of skeletonItems; track skeleton; let last = $last) {
+          <div class="to-bell-notification-menu__loading-item" aria-hidden="true">
+            <tp-skeleton variant="text" width="36%" height="10px"></tp-skeleton>
+            <tp-skeleton variant="rectangle" width="100%" height="36px"></tp-skeleton>
+          </div>
+
+          @if (!last) {
+            <tp-divider class="to-bell-notification-menu__item-divider" mode="dash"></tp-divider>
+          }
+        }
+      </div>
+    } @else if (notifications().length === 0) {
       <p class="to-bell-notification-menu__empty">No notifications to display</p>
     } @else {
       <div class="to-bell-notification-menu__list" aria-label="Notifications">
@@ -59,7 +85,7 @@
           </article>
 
           @if (!last) {
-            <tp-divider class="to-bell-notification-menu__item-divider"></tp-divider>
+            <tp-divider class="to-bell-notification-menu__item-divider" mode="dash"></tp-divider>
           }
         }
       </div>
@@ -69,7 +95,7 @@
 
     <footer class="to-bell-notification-menu__footer">
       <tp-text-button
-        class="mark-read"
+        class="to-mark-read"
         color="gray"
         pressEffectShape="rect"
         contentAlignment="start"
@@ -81,9 +107,7 @@
         Mark all read
       </tp-text-button>
 
-      <a routerLink="/settings/notification-history" (click)="closeMenu()">
-        View notification history
-      </a>
+      <a routerLink="/settings/notification-history" (click)="closeMenu()"> View all history </a>
     </footer>
   </div>
 </tp-popover-menu>

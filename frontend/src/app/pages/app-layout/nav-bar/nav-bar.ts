@@ -43,7 +43,14 @@ export class NavBar implements OnInit {
 
   readonly isBellNotificationMenuOpen = signal(false);
   readonly isUserAccountMenuOpen = signal(false);
+  readonly isUnreadOnly = signal(false);
+  readonly isLoadingNotifications = signal(false);
   readonly notifications = signal<NotificationItem[]>([]);
+  readonly visibleNotifications = computed(() =>
+    this.isUnreadOnly()
+      ? this.notifications().filter((notification) => notification.isRead !== true)
+      : this.notifications(),
+  );
   readonly unreadCount = computed(
     () => this.notifications().filter((notification) => notification.isRead !== true).length,
   );
@@ -51,7 +58,9 @@ export class NavBar implements OnInit {
 
   private readonly pendingMarkReadIds = new Set<string>();
   private readonly inFlightMarkReadIds = new Set<string>();
+  private activeNotificationRequests = 0;
   private pendingMarkReadTimer: ReturnType<typeof setTimeout> | null = null;
+  private successfulMarkAllReadCount = 0;
 
   ngOnInit(): void {
     this.notificationService.bellNotifications$
@@ -100,12 +109,14 @@ export class NavBar implements OnInit {
     );
     if (!notification || notification.isRead === true) return;
 
+    const readAt = new Date().toISOString();
+    this.notifications.update((notifications) =>
+      notifications.map((item) =>
+        item.notificationId === notificationId ? { ...item, isRead: true, readAt } : item,
+      ),
+    );
     this.pendingMarkReadIds.add(notificationId);
-    this.clearPendingMarkReadTimer();
-    this.pendingMarkReadTimer = setTimeout(() => {
-      this.pendingMarkReadTimer = null;
-      this.markPendingNotificationsRead();
-    }, 500);
+    this.schedulePendingMarkRead();
   }
 
   markAllNotificationsRead(): void {
@@ -117,7 +128,6 @@ export class NavBar implements OnInit {
     }
 
     this.clearPendingMarkReadTimer();
-    this.pendingMarkReadIds.clear();
     this.isMarkingAllNotificationsRead.set(true);
 
     this.clientCorrelationService.startAction();
@@ -128,10 +138,15 @@ export class NavBar implements OnInit {
         finalize(() => {
           this.clientCorrelationService.completeAction();
           this.isMarkingAllNotificationsRead.set(false);
+          if (!this.destroyRef.destroyed && this.pendingMarkReadIds.size > 0) {
+            this.schedulePendingMarkRead();
+          }
         }),
       )
       .subscribe({
         next: () => {
+          this.successfulMarkAllReadCount++;
+          this.pendingMarkReadIds.clear();
           const readAt = new Date().toISOString();
           this.notifications.update((notifications) =>
             notifications.map((notification) =>
@@ -154,27 +169,49 @@ export class NavBar implements OnInit {
   }
 
   private addNotification(notification: BellNotificationItem): void {
-    this.notifications.update((notifications) => [
-      notification,
-      ...notifications.filter((item) => item.notificationId !== notification.notificationId),
-    ]);
+    this.notifications.update((notifications) => {
+      const existing = notifications.find(
+        (item) => item.notificationId === notification.notificationId,
+      );
+      const nextNotification =
+        existing?.isRead === true && notification.isRead !== true
+          ? { ...notification, isRead: true, readAt: existing.readAt }
+          : notification;
+
+      return [
+        nextNotification,
+        ...notifications.filter((item) => item.notificationId !== notification.notificationId),
+      ];
+    });
   }
 
-  private loadNotifications(): void {
+  loadNotifications(isUnreadOnly = this.isUnreadOnly()): void {
     const requestActionId = this.clientCorrelationService.startAction();
+    this.activeNotificationRequests++;
+    this.isLoadingNotifications.set(true);
 
     this.notificationService
-      .getLatelyNotificationForUser()
+      .getLatestNotificationForUser(isUnreadOnly)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
+          this.activeNotificationRequests--;
+          this.isLoadingNotifications.set(this.activeNotificationRequests > 0);
           if (this.clientCorrelationService.getClientActionId() === requestActionId) {
             this.clientCorrelationService.completeAction();
           }
         }),
       )
       .subscribe({
-        next: (notifications) => this.mergeNotifications(notifications),
+        next: (notifications) => {
+          if (isUnreadOnly !== this.isUnreadOnly()) return;
+
+          if (isUnreadOnly) {
+            this.notifications.set(notifications);
+          } else {
+            this.mergeNotifications(notifications);
+          }
+        },
         error: (error: unknown) => console.error('Failed to load notifications.', error),
       });
   }
@@ -188,6 +225,7 @@ export class NavBar implements OnInit {
     this.pendingMarkReadIds.clear();
     notificationIds.forEach((notificationId) => this.inFlightMarkReadIds.add(notificationId));
     const notificationIdSet = new Set(notificationIds);
+    const markAllReadCount = this.successfulMarkAllReadCount;
 
     const actionId = this.clientCorrelationService.startAction();
     this.notificationService
@@ -204,18 +242,27 @@ export class NavBar implements OnInit {
         }),
       )
       .subscribe({
-        next: () => {
-          const readAt = new Date().toISOString();
-          this.notifications.update((notifications) =>
-            notifications.map((notification) =>
-              notificationIdSet.has(notification.notificationId)
-                ? { ...notification, isRead: true, readAt: notification.readAt ?? readAt }
-                : notification,
-            ),
-          );
+        error: (error: unknown) => {
+          if (this.successfulMarkAllReadCount === markAllReadCount) {
+            this.notifications.update((notifications) =>
+              notifications.map((notification) =>
+                notificationIdSet.has(notification.notificationId)
+                  ? { ...notification, isRead: false, readAt: null }
+                  : notification,
+              ),
+            );
+          }
+          console.error('Failed to mark notification read.', error);
         },
-        error: (error: unknown) => console.error('Failed to mark notification read.', error),
       });
+  }
+
+  private schedulePendingMarkRead(): void {
+    this.clearPendingMarkReadTimer();
+    this.pendingMarkReadTimer = setTimeout(() => {
+      this.pendingMarkReadTimer = null;
+      this.markPendingNotificationsRead();
+    }, 500);
   }
 
   private clearPendingMarkReadTimer(): void {

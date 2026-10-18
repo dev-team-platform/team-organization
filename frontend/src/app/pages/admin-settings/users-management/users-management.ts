@@ -20,6 +20,7 @@ import {
   TpSearchBar,
   TpSelectOption,
   TpTable,
+  TpTableActionContent,
   TpTableCellContent,
   TpTableColumn,
   TpTableConfig,
@@ -27,8 +28,11 @@ import {
   TpTableFilterContent,
   TpTablePageChange,
   TpTableSort,
+  TpTextButton,
+  type TpTableActionColumnConfig,
 } from '@team-platform/ui';
 import { EMPTY, Subject, catchError, debounceTime, finalize, switchMap, tap } from 'rxjs';
+import { MainSkeleton } from '../../../components/main-skeleton/main-skeleton';
 import { DEFAULT_CHIP_MAPPING } from '../../../core/constants/common';
 import { FilterOperator, TemporalPartType } from '../../../core/enums/common';
 import { RoleName } from '../../../core/enums/uam';
@@ -39,6 +43,7 @@ import { ClientCorrelationService } from '../../../core/services/client-correlat
 import { ToastService } from '../../../core/services/toast-service';
 import { UserService } from '../../../core/services/user-service';
 import { isNotEmpty, resolveErrorMessage } from '../../../core/utils/common';
+import { EditUserDialog } from './edit-user-dialog/edit-user-dialog';
 import { NewUserDialog } from './new-user-dialog/new-user-dialog';
 
 type UserFilterField =
@@ -54,10 +59,14 @@ type UserFilterField =
     TpInputDatePicker,
     TpSearchBar,
     TpTable,
+    TpTableActionContent,
     TpTableCellContent,
     TpTableFilterContent,
+    TpTextButton,
     DatePipe,
     NewUserDialog,
+    EditUserDialog,
+    MainSkeleton,
   ],
   templateUrl: './users-management.html',
   styleUrl: './users-management.scss',
@@ -72,6 +81,12 @@ export class UsersManagement implements OnInit {
   private readonly userRequests = new Subject<GetUsersRequest>();
   private lastUsersRequest: GetUsersRequest | null = null;
 
+  protected readonly actionColumn: TpTableActionColumnConfig = {
+    enabled: true,
+    title: 'Action',
+    menuWidth: '160px',
+  };
+
   readonly users = signal<UserListItem[]>([]);
   readonly totalUsers = signal(0);
   readonly currentPage = signal(1);
@@ -81,14 +96,29 @@ export class UsersManagement implements OnInit {
   readonly roleFilters = signal<string[]>([]);
   readonly statusFilters = signal<string[]>([]);
   readonly genderFilters = signal<string[]>([]);
+  readonly statusOptionSearch = signal('');
+  readonly roleOptionSearch = signal('');
+  readonly genderOptionSearch = signal('');
   readonly lastLoginDateFilter = signal<Date | null>(null);
   readonly birthDateFilter = signal<Date | null>(null);
   readonly loading = signal(true);
+  readonly initialLoading = signal(true);
   readonly loadError = signal<string | null>(null);
   readonly newUserDialogOpen = signal(false);
+  readonly editUserDialogOpen = signal(false);
+  readonly selectedUser = signal<UserListItem | null>(null);
   readonly statusOptions = [UserStatus.Active, UserStatus.Inactive, UserStatus.Pending];
   readonly genderOptions = [UserGender.Male, UserGender.Female, UserGender.Unknown];
   readonly roleOptions = [RoleName.SuperAdmin, RoleName.Admin, RoleName.Employee];
+  readonly filteredStatusOptions = computed(() =>
+    this.filterSelectOptions(this.statusOptions, this.statusOptionSearch()),
+  );
+  readonly filteredGenderOptions = computed(() =>
+    this.filterSelectOptions(this.genderOptions, this.genderOptionSearch()),
+  );
+  readonly filteredRoleOptions = computed(() =>
+    this.filterSelectOptions(this.roleOptions, this.roleOptionSearch()),
+  );
 
   readonly statusMapping: Record<UserStatus, ChipMapping> = {
     [UserStatus.Active]: { color: 'green', displayValue: UserStatus.Active.toUpperCase() },
@@ -136,12 +166,12 @@ export class UsersManagement implements OnInit {
     { key: 'employeeCode', title: 'Employee Code', sortable: true, width: '150px' },
     { key: 'firstName', title: 'First Name', sortable: true, width: '150px' },
     { key: 'lastName', title: 'Last Name', sortable: true, width: '150px' },
-    { key: 'displayName', title: 'Display Name', sortable: true, width: '180px' },
-    { key: 'username', title: 'Username', sortable: true, width: '160px' },
+    { key: 'displayName', title: 'Display Name', sortable: true, width: '150px' },
+    { key: 'username', title: 'Username', sortable: true, width: '150px' },
     { key: 'email', title: 'Email', sortable: true, width: '250px', maxCellContentLength: 255 },
-    { key: 'roleName', title: 'Role', sortable: true, width: '200px' },
-    { key: 'status', title: 'Status', sortable: true, width: '200px' },
-    { key: 'gender', title: 'Gender', sortable: true, width: '140px' },
+    { key: 'roleName', title: 'Role', sortable: true, width: '250px' },
+    { key: 'status', title: 'Status', sortable: true, width: '250px' },
+    { key: 'gender', title: 'Gender', sortable: true, width: '250px' },
     { key: 'birthDate', title: 'Birth Date', sortable: true, width: '150px' },
     { key: 'lastLoginAt', title: 'Last Login At', sortable: true, width: '150px' },
   ];
@@ -157,6 +187,7 @@ export class UsersManagement implements OnInit {
   readonly tableConfig = computed<TpTableConfig<UserListItem>>(() => ({
     columns: this.columns,
     maxCellContentLength: 64,
+    maxHeight: '450px',
     filter: { enabled: true },
     sort: { enabled: true, value: this.activeSort() },
     pagination: {
@@ -168,6 +199,7 @@ export class UsersManagement implements OnInit {
       nextPageButtonDisabled: this.loading(),
     },
     reload: { enabled: true, buttonDisabled: this.loading() },
+    rowTrackBy: (row, _) => row.id,
   }));
 
   constructor() {
@@ -186,11 +218,13 @@ export class UsersManagement implements OnInit {
             tap((result) => {
               this.users.set(result.items);
               this.totalUsers.set(result.totalItems);
+              this.initialLoading.set(false);
             }),
             catchError((error: unknown) => {
               this.users.set([]);
               this.totalUsers.set(0);
               this.loadError.set(resolveErrorMessage(error));
+              this.initialLoading.set(false);
               return EMPTY;
             }),
             finalize(() => {
@@ -248,6 +282,18 @@ export class UsersManagement implements OnInit {
     this.scheduleFilteredLoad();
   }
 
+  onStatusOptionSearch(value: string): void {
+    this.statusOptionSearch.set(value);
+  }
+
+  onGenderOptionSearch(value: string): void {
+    this.genderOptionSearch.set(value);
+  }
+
+  onRoleOptionSearch(value: string): void {
+    this.roleOptionSearch.set(value);
+  }
+
   onLastLoginDateChange(value: Date | null): void {
     this.lastLoginDateFilter.set(value);
     this.scheduleFilteredLoad();
@@ -277,6 +323,17 @@ export class UsersManagement implements OnInit {
 
   openNewUserDialog(): void {
     this.newUserDialogOpen.set(true);
+  }
+
+  openEditUserDialog(user: UserListItem): void {
+    this.selectedUser.set(user);
+    this.editUserDialogOpen.set(true);
+  }
+
+  handleUserEdited(updatedUser: UserListItem): void {
+    this.users.update((users) =>
+      users.map((user) => (user.id === updatedUser.id ? updatedUser : user)),
+    );
   }
 
   handleUserCreated(): void {
@@ -388,6 +445,16 @@ export class UsersManagement implements OnInit {
     }
 
     return criteria;
+  }
+
+  private filterSelectOptions<T extends string>(
+    options: readonly T[],
+    query: string,
+  ): readonly T[] {
+    const normalizedQuery = query.trim().toLowerCase();
+    return normalizedQuery
+      ? options.filter((option) => option.toLowerCase().includes(normalizedQuery))
+      : options;
   }
 
   private formatDateOnly(date: Date): string {

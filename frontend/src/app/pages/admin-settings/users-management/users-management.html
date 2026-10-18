@@ -1,142 +1,186 @@
-<section class="users-management" aria-labelledby="users-title">
-  <header class="users-management__toolbar">
-    <h1 id="users-title" class="users-management__title">Users</h1>
+@if (initialLoading()) {
+  <app-main-skeleton></app-main-skeleton>
+} @else {
+  <section class="to-users-management" aria-labelledby="users-title">
+    <header class="to-users-management__toolbar">
+      <h1 id="users-title" class="to-users-management__title">Users</h1>
 
-    <div class="users-management__actions">
-      <tp-search-bar
-        class="users-management__search"
-        placeholder="Search users"
-        ariaLabel="Search users"
-        maxWidth="360px"
-        [searchAfter]="0"
-        (onSearch)="onGlobalSearch($event)"
-      ></tp-search-bar>
+      <div class="to-users-management__actions">
+        <tp-search-bar
+          class="to-users-management__search"
+          placeholder="Search users"
+          ariaLabel="Search users"
+          maxWidth="360px"
+          [searchAfter]="0"
+          (onSearch)="onGlobalSearch($event)"
+        ></tp-search-bar>
 
-      <tp-button
-        class="users-management__action-button"
-        color="blue"
-        variant="filled"
-        height="36px"
-        tooltipTitle="Create a new user"
-        (onClick)="openNewUserDialog()"
-      >
-        <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
-        <span>New User</span>
-      </tp-button>
+        <tp-button
+          class="to-users-management__action-button"
+          color="blue"
+          variant="filled"
+          height="36px"
+          tooltipTitle="Create a new user"
+          (onClick)="openNewUserDialog()"
+        >
+          <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
+          <span>New User</span>
+        </tp-button>
 
-      <tp-button
-        class="users-management__action-button"
-        color="blue"
-        variant="filled"
-        height="36px"
-        tooltipTitle="Export users to Excel (coming soon)"
-      >
-        <span class="tp-icon material-symbols-outlined" aria-hidden="true">download</span>
-        <span>Export</span>
-      </tp-button>
-    </div>
-  </header>
+        <tp-button
+          class="to-users-management__action-button"
+          color="blue"
+          variant="filled"
+          height="36px"
+          tooltipTitle="Export users to Excel (coming soon)"
+        >
+          <span class="tp-icon material-symbols-outlined" aria-hidden="true">download</span>
+          <span>Export</span>
+        </tp-button>
+      </div>
+    </header>
 
-  <tp-table
-    class="users-management__table"
-    [data]="tableData()"
-    [config]="tableConfig()"
-    [state]="tableState()"
-    (onPaginationChange)="onPaginationChange($event)"
-    (onSortChange)="onSortChange($event)"
-    (onReload)="reloadUsers()"
-  >
-    <ng-template tpTableFilter let-key="key">
-      @switch (key) {
-        @case ('status') {
-          <tp-input-autocomplete-multiselect
-            [placeholder]="columnTitle(key)"
-            ariaLabel="Filter by status"
-            [options]="statusOptions"
-            [useSelectAll]="true"
-            [maxChips]="1"
-            [value]="statusFilters()"
-            (valueChange)="onStatusFilterChange($event)"
-          ></tp-input-autocomplete-multiselect>
+    <tp-table
+      class="to-users-management__table"
+      [data]="tableData()"
+      [config]="tableConfig()"
+      [state]="tableState()"
+      [actionColumn]="actionColumn"
+      (onPaginationChange)="onPaginationChange($event)"
+      (onSortChange)="onSortChange($event)"
+      (onReload)="reloadUsers()"
+    >
+      <ng-template tpTableActionContent let-user>
+        <tp-text-button
+          pressEffectShape="rect"
+          hoverShape="rect"
+          contentAlignment="start"
+          color="black"
+          (onClick)="openEditUserDialog(user)"
+          width="100%"
+        >
+          <span class="tp-icon material-symbols-outlined" aria-hidden="true">edit</span>
+          <span>Edit</span>
+        </tp-text-button>
+        <tp-text-button
+          pressEffectShape="rect"
+          hoverShape="rect"
+          contentAlignment="start"
+          color="black"
+          width="100%"
+        >
+          <span class="tp-icon material-symbols-outlined" aria-hidden="true">block</span>
+          <span>Disable</span>
+        </tp-text-button>
+      </ng-template>
+
+      <ng-template tpTableFilter let-key="key">
+        @switch (key) {
+          @case ('status') {
+            <tp-input-autocomplete-multiselect
+              ariaLabel="Filter by status"
+              [typingMode]="'inline'"
+              [maxChipContentLength]="20"
+              [placeholder]="columnTitle(key)"
+              [options]="filteredStatusOptions()"
+              [useSelectAll]="true"
+              [maxChips]="1"
+              [value]="statusFilters()"
+              (onSearch)="onStatusOptionSearch($event)"
+              (valueChange)="onStatusFilterChange($event)"
+            ></tp-input-autocomplete-multiselect>
+          }
+          @case ('roleName') {
+            <tp-input-autocomplete-multiselect
+              ariaLabel="Filter by role"
+              [typingMode]="'inline'"
+              [maxChipContentLength]="20"
+              [placeholder]="columnTitle(key)"
+              [options]="filteredRoleOptions()"
+              [useSelectAll]="true"
+              [maxChips]="1"
+              [value]="roleFilters()"
+              (onSearch)="onRoleOptionSearch($event)"
+              (valueChange)="onRoleFilterChange($event)"
+            ></tp-input-autocomplete-multiselect>
+          }
+          @case ('gender') {
+            <tp-input-autocomplete-multiselect
+              ariaLabel="Filter by gender"
+              [typingMode]="'inline'"
+              [maxChipContentLength]="20"
+              [placeholder]="columnTitle(key)"
+              [options]="filteredGenderOptions()"
+              [useSelectAll]="true"
+              [maxChips]="1"
+              [value]="genderFilters()"
+              (onSearch)="onGenderOptionSearch($event)"
+              (valueChange)="onGenderFilterChange($event)"
+            ></tp-input-autocomplete-multiselect>
+          }
+          @case ('birthDate') {
+            <tp-input-date-picker
+              [placeholder]="columnTitle(key)"
+              dateFormat="dd-MMM-yyyy"
+              [value]="birthDateFilter()"
+              (valueChange)="onBirthDateChange($event)"
+            ></tp-input-date-picker>
+          }
+          @case ('lastLoginAt') {
+            <tp-input-date-picker
+              [placeholder]="columnTitle(key)"
+              dateFormat="yyyy-MM-dd"
+              [value]="lastLoginDateFilter()"
+              (valueChange)="onLastLoginDateChange($event)"
+            ></tp-input-date-picker>
+          }
+          @default {
+            <tp-input
+              class="to-users-management__column-filter"
+              [placeholder]="columnTitle(key)"
+              [value]="textFilterValue(key)"
+              (valueChange)="onTextFilterChange(key, $event)"
+            ></tp-input>
+          }
         }
-        @case ('roleName') {
-          <tp-input-autocomplete-multiselect
-            [placeholder]="columnTitle(key)"
-            ariaLabel="Filter by role"
-            [options]="roleOptions"
-            [useSelectAll]="true"
-            [maxChips]="1"
-            [value]="roleFilters()"
-            (valueChange)="onRoleFilterChange($event)"
-          ></tp-input-autocomplete-multiselect>
-        }
-        @case ('gender') {
-          <tp-input-autocomplete-multiselect
-            [placeholder]="columnTitle(key)"
-            ariaLabel="Filter by gender"
-            [options]="genderOptions"
-            [useSelectAll]="true"
-            [maxChips]="1"
-            [value]="genderFilters()"
-            (valueChange)="onGenderFilterChange($event)"
-          ></tp-input-autocomplete-multiselect>
-        }
-        @case ('birthDate') {
-          <tp-input-date-picker
-            [placeholder]="columnTitle(key)"
-            dateFormat="dd-MMM-yyyy"
-            [value]="birthDateFilter()"
-            (valueChange)="onBirthDateChange($event)"
-          ></tp-input-date-picker>
-        }
-        @case ('lastLoginAt') {
-          <tp-input-date-picker
-            [placeholder]="columnTitle(key)"
-            dateFormat="yyyy-MM-dd"
-            [value]="lastLoginDateFilter()"
-            (valueChange)="onLastLoginDateChange($event)"
-          ></tp-input-date-picker>
-        }
-        @default {
-          <tp-input
-            class="users-management__column-filter"
-            [placeholder]="columnTitle(key)"
-            [value]="textFilterValue(key)"
-            (valueChange)="onTextFilterChange(key, $event)"
-          ></tp-input>
-        }
-      }
-    </ng-template>
+      </ng-template>
 
-    <ng-template tpTableCell="status" let-user>
-      <tp-chip [color]="getStatus(user).color" height="24px" fontSize="12px" variant="outlined">
-        {{ getStatus(user).displayValue }}
-      </tp-chip>
-    </ng-template>
+      <ng-template tpTableCell="status" let-user>
+        <tp-chip [color]="getStatus(user).color" height="24px" fontSize="12px" variant="outlined">
+          {{ getStatus(user).displayValue }}
+        </tp-chip>
+      </ng-template>
 
-    <ng-template tpTableCell="roleName" let-user>
-      <tp-chip [color]="getRole(user).color" height="24px" fontSize="12px" variant="outlined">
-        {{ getRole(user).displayValue }}
-      </tp-chip>
-    </ng-template>
+      <ng-template tpTableCell="roleName" let-user>
+        <tp-chip [color]="getRole(user).color" height="24px" fontSize="12px" variant="outlined">
+          {{ getRole(user).displayValue }}
+        </tp-chip>
+      </ng-template>
 
-    <ng-template tpTableCell="gender" let-user>
-      <tp-chip [color]="getGender(user).color" height="24px" fontSize="12px" variant="outlined">
-        {{ getGender(user).displayValue }}
-      </tp-chip>
-    </ng-template>
+      <ng-template tpTableCell="gender" let-user>
+        <tp-chip [color]="getGender(user).color" height="24px" fontSize="12px" variant="outlined">
+          {{ getGender(user).displayValue }}
+        </tp-chip>
+      </ng-template>
 
-    <ng-template tpTableCell="birthDate" let-user>
-      {{ dateOnlyAsUtc(user['birthDate']) | date: 'dd-MMM-yyyy' : 'UTC' }}
-    </ng-template>
+      <ng-template tpTableCell="birthDate" let-user>
+        {{ dateOnlyAsUtc(user['birthDate']) | date: 'dd-MMM-yyyy' : 'UTC' }}
+      </ng-template>
 
-    <ng-template tpTableCell="lastLoginAt" let-user>
-      {{ user['lastLoginAt'] | date: 'dd-MMM-yyyy HH:mm:ss' }}
-    </ng-template>
-  </tp-table>
+      <ng-template tpTableCell="lastLoginAt" let-user>
+        {{ user['lastLoginAt'] | date: 'dd-MMM-yyyy HH:mm:ss' }}
+      </ng-template>
+    </tp-table>
 
-  <app-new-user-dialog
-    [(open)]="newUserDialogOpen"
-    (created)="handleUserCreated()"
-  ></app-new-user-dialog>
-</section>
+    <app-new-user-dialog
+      [(open)]="newUserDialogOpen"
+      (created)="handleUserCreated()"
+    ></app-new-user-dialog>
+
+    <app-edit-user-dialog
+      [(open)]="editUserDialogOpen"
+      [user]="selectedUser()"
+      (updated)="handleUserEdited($event)"
+    ></app-edit-user-dialog>
+  </section>
+}

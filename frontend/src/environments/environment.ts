@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
+  emailDomain: 'team-platform.com',
   api: {
     baseUrl: 'http://localhost:9100/organizations/api/v1/',
     authUrl: 'http://localhost:9100/api/v1/auth/',
