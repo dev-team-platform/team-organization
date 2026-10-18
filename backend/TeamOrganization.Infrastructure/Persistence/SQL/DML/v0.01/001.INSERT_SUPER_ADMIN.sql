@@ -36,7 +36,7 @@ VALUES (
     'f0a27760-2c4b-42cd-9008-c328772d0eb8',
     'SA-00001',
     'tp-super-admin-1',
-    'tp-super-admin-1@team-platform.local',
+    'tp-super-admin-1@team-platform.com',
     'Super Admin 1',
     NULL,
     'Super Admin 1',

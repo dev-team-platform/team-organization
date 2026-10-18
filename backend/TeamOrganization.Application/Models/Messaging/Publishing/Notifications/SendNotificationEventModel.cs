@@ -1,10 +1,11 @@
 using System.Text.Json;
+using TeamOrganization.Domain.Constants.Notifications;
 
 namespace TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
 
 public class SendNotificationEventModel
 {
-    public string SourceApp { get; init; } = "team-organization";
+    public string SourceApp { get; } = SourceApps.TeamOrganization;
     public required string EventType { get; init; }
     public required Guid CreatedById { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
