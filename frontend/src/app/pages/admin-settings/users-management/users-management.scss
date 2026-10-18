@@ -3,7 +3,7 @@
   min-width: 0;
 }
 
-.users-management {
+.to-users-management {
   min-width: 0;
   padding: var(--tp-space-6);
 
@@ -56,24 +56,24 @@
   }
 }
 
-:host ::ng-deep .users-management__action-button .tp-button__content {
-  display: inline-flex;
+:host ::ng-deep .to-users-management__action-button .tp-button__content {
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--tp-space-2);
   white-space: nowrap;
 }
 
-:host ::ng-deep .users-management__action-button .tp-icon {
+:host ::ng-deep .to-users-management__action-button .tp-icon {
   --tp-icon-size: 20px;
 }
 
-:host ::ng-deep .users-management__column-filter .mat-mdc-form-field-subscript-wrapper {
+:host ::ng-deep .to-users-management__column-filter .mat-mdc-form-field-subscript-wrapper {
   display: none;
 }
 
 @media (max-width: 900px) {
-  .users-management {
+  .to-users-management {
     padding: var(--tp-space-4);
 
     &__toolbar {
@@ -97,7 +97,7 @@
 }
 
 @media (max-width: 600px) {
-  .users-management {
+  .to-users-management {
     &__action-button {
       flex: 1 1 auto;
     }

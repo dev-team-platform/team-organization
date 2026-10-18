@@ -12,7 +12,7 @@ export interface NotificationItem {
 
 export type GetAllNotificationsRequest = FilterRequest;
 export type GetAllNotificationsResponse = FilterResult<NotificationItem>;
-export type GetLatelyNotificationForUserResponse = NotificationItem[];
+export type GetLatestNotificationForUserResponse = NotificationItem[];
 
 export interface MarkNotificationsRequest {
   notificationIds?: string[];

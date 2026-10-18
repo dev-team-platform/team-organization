@@ -1,7 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
-import { Observable, Subject } from 'rxjs';
+import {
+  HttpTransportType,
+  HubConnection,
+  HubConnectionBuilder,
+  HubConnectionState,
+} from '@microsoft/signalr';
+import { delay, Observable, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   CLIENT_ACTION_ID_HEADER,
@@ -9,11 +14,12 @@ import {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
 } from '../constants/interceptors';
+import { SOURCE_APP } from '../constants/source-app';
 import {
   BellNotificationItem,
   GetAllNotificationsRequest,
   GetAllNotificationsResponse,
-  GetLatelyNotificationForUserResponse,
+  GetLatestNotificationForUserResponse,
   MarkNotificationsRequest,
   MarkNotificationsResponse,
 } from '../models/notifications';
@@ -37,24 +43,34 @@ export class NotificationService {
   readonly bellNotifications$: Observable<BellNotificationItem> =
     this.bellNotificationSubject.asObservable();
 
-  getLatelyNotificationForUser(): Observable<GetLatelyNotificationForUserResponse> {
-    return this.httpClient.get<GetLatelyNotificationForUserResponse>('notifications/latest', {
-      context: this.appHttpContext.notificationContext,
-    });
+  getLatestNotificationForUser(
+    isUnreadOnly = false,
+  ): Observable<GetLatestNotificationForUserResponse> {
+    return this.httpClient
+      .post<GetLatestNotificationForUserResponse>(
+        'notifications/latest',
+        { sourceApp: SOURCE_APP, isUnreadOnly },
+        { context: this.appHttpContext.notificationContext },
+      )
+      .pipe(delay(0));
   }
 
   getAllNotifications(
     request: GetAllNotificationsRequest,
   ): Observable<GetAllNotificationsResponse> {
-    return this.httpClient.post<GetAllNotificationsResponse>('notifications/all', request, {
-      context: this.appHttpContext.notificationContext,
-    });
+    return this.httpClient.post<GetAllNotificationsResponse>(
+      'notifications/all',
+      { ...request, sourceApp: SOURCE_APP },
+      { context: this.appHttpContext.notificationContext },
+    );
   }
 
   markNotifications(request: MarkNotificationsRequest): Observable<MarkNotificationsResponse> {
-    return this.httpClient.patch<MarkNotificationsResponse>('notifications/mark-as-read', request, {
-      context: this.appHttpContext.notificationContext,
-    });
+    return this.httpClient.patch<MarkNotificationsResponse>(
+      'notifications/mark-as-read',
+      { ...request, sourceApp: SOURCE_APP },
+      { context: this.appHttpContext.notificationContext },
+    );
   }
 
   startHubConnection(): Promise<void> {
@@ -82,7 +98,7 @@ export class NotificationService {
 
   private getHubConnection(): HubConnection {
     if (!this.hubConnection) {
-      const hubUrl = `${environment.api.notificationUrl.replace(/\/+$/, '')}/hubs/notifications`;
+      const hubUrl = `${environment.api.notificationUrl.replace(/\/+$/, '')}/hubs/notifications?source_app=${encodeURIComponent(SOURCE_APP)}`;
       const headers: Record<string, string> = {
         [CLIENT_ACTION_ID_HEADER]: this.clientCorrelationService.getOrStartAction(),
         [CLIENT_REQUEST_ID_HEADER]: this.clientCorrelationService.createRequestId(),
@@ -94,7 +110,11 @@ export class NotificationService {
       }
 
       this.hubConnection = new HubConnectionBuilder()
-        .withUrl(hubUrl, { withCredentials: true, headers })
+        .withUrl(hubUrl, {
+          headers,
+          withCredentials: true,
+          transport: HttpTransportType.WebSockets,
+        })
         .withAutomaticReconnect()
         .build();
 

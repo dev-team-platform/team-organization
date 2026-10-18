@@ -23,14 +23,12 @@ export const apiBaseUrlInterceptor: HttpInterceptorFn = (req, next) => {
   }
 
   // 2. Correlation headers
-  const clientActionId = correlationService.getClientActionId();
+  const clientActionId = correlationService.getOrStartAction();
   const clientRequestId = correlationService.createRequestId();
 
-  let headers = req.headers.set(CLIENT_REQUEST_ID_HEADER, clientRequestId);
-
-  if (clientActionId) {
-    headers = headers.set(CLIENT_ACTION_ID_HEADER, clientActionId);
-  }
+  const headers = req.headers
+    .set(CLIENT_ACTION_ID_HEADER, clientActionId)
+    .set(CLIENT_REQUEST_ID_HEADER, clientRequestId);
 
   // 3. Forward request
   return next(

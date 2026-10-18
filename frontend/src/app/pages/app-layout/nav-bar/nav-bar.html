@@ -42,7 +42,10 @@
 <app-bell-notification-menu
   [(open)]="isBellNotificationMenuOpen"
   [origin]="bellNotificationMenuOrigin"
-  [notifications]="notifications()"
+  [notifications]="visibleNotifications()"
+  [loading]="isLoadingNotifications()"
+  [(isUnreadOnly)]="isUnreadOnly"
+  (isUnreadOnlyChange)="loadNotifications($event)"
   [markAllReadDisabled]="isMarkingAllNotificationsRead()"
   (markAsRead)="scheduleMarkNotificationRead($event)"
   (markAllRead)="markAllNotificationsRead()"

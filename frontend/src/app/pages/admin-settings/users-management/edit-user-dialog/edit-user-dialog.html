@@ -1,0 +1,103 @@
+<app-title-dialog
+  [(open)]="open"
+  ariaLabel="Edit user"
+  width="min(92vw, 860px)"
+  [title]="titleTemplate"
+  [bodyTemplate]="bodyTemplate"
+  [footerTemplate]="footerTemplate"
+>
+</app-title-dialog>
+
+<ng-template #titleTemplate>
+  <span class="to-edit-user-dialog__title">Edit User</span>
+</ng-template>
+
+<ng-template #bodyTemplate>
+  <div class="to-edit-user-dialog__form-grid">
+    <div class="to-edit-user-dialog__column">
+      <tp-input title="First Name" [formField]="userForm.firstName"></tp-input>
+
+      <tp-input title="Last Name" [formField]="userForm.lastName"></tp-input>
+
+      <tp-input title="Display Name" [formField]="userForm.displayName"></tp-input>
+
+      <tp-input-date-picker
+        title="Birth Date"
+        dateFormat="dd-MMM-yyyy"
+        [formField]="userForm.birthDate"
+      ></tp-input-date-picker>
+
+      <div class="to-edit-user-dialog__gender-field" role="radiogroup" aria-label="Gender">
+        <div class="to-edit-user-dialog__gender-options">
+          <span class="to-edit-user-dialog__gender-label">Gender:</span>
+          <tp-radio
+            name="edit-user-gender"
+            [value]="genders.Male"
+            [checked]="selectedGender() === genders.Male"
+            ariaLabel="Male"
+            (checkedChange)="onGenderChecked(genders.Male, $event)"
+          >
+            Male
+          </tp-radio>
+          <tp-radio
+            name="edit-user-gender"
+            [value]="genders.Female"
+            [checked]="selectedGender() === genders.Female"
+            ariaLabel="Female"
+            (checkedChange)="onGenderChecked(genders.Female, $event)"
+          >
+            Female
+          </tp-radio>
+          <tp-radio
+            name="edit-user-gender"
+            [value]="genders.Unknown"
+            [checked]="selectedGender() === genders.Unknown"
+            ariaLabel="Unknown"
+            (checkedChange)="onGenderChecked(genders.Unknown, $event)"
+          >
+            Unknown
+          </tp-radio>
+        </div>
+      </div>
+    </div>
+
+    <div class="to-edit-user-dialog__column">
+      <tp-input title="Username" [formField]="userForm.username"></tp-input>
+
+      <div class="to-edit-user-dialog__email-field">
+        <div class="to-edit-user-dialog__email-input">
+          <tp-input title="Email" [formField]="userForm.email" width="100%"></tp-input>
+        </div>
+        <span class="to-edit-user-dialog__email-domain">&#64;{{ emailDomain }}</span>
+      </div>
+
+      <tp-input title="Employee Code" [formField]="userForm.employeeCode"></tp-input>
+
+      <tp-input-singleselect
+        title="Role"
+        ariaLabel="Role"
+        [options]="roleOptions"
+        [formField]="userForm.roleName"
+      ></tp-input-singleselect>
+
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #footerTemplate>
+  <div class="to-edit-user-dialog__footer-actions">
+    <tp-button
+      color="blue"
+      variant="filled"
+      height="36px"
+      [disabled]="!userForm().valid()"
+      (onClick)="saveChanges()"
+    >
+      Save Changes
+    </tp-button>
+
+    <tp-button color="gray" variant="outlined" height="36px" (onClick)="cancel()">
+      Cancel
+    </tp-button>
+  </div>
+</ng-template>

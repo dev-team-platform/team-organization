@@ -11,7 +11,7 @@ import {
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormField, disabled, email, form, pattern, required } from '@angular/forms/signals';
+import { FormField, disabled, form, pattern, required } from '@angular/forms/signals';
 import type { TpSelectOption, TpSelectOptionDisplayFn } from '@team-platform/ui';
 import {
   TpButton,
@@ -21,9 +21,11 @@ import {
   TpRadio,
 } from '@team-platform/ui';
 import { EMPTY, catchError, finalize, tap } from 'rxjs';
+import { environment } from '../../../../../environments/environment';
 import { TitleDialog } from '../../../../components/title-dialog/title-dialog';
 import { DEFAULT_ERROR_MESSAGE } from '../../../../core/constants/common';
 import {
+  EMAIL_LOCAL_PART_REGEX,
   USERNAME_EMAIL_ALREADY_EXISTS_ERROR_MESSAGE,
   USERNAME_REGEX,
 } from '../../../../core/constants/users';
@@ -36,6 +38,7 @@ import { ClientCorrelationService } from '../../../../core/services/client-corre
 import { ToastService } from '../../../../core/services/toast-service';
 import { UserService } from '../../../../core/services/user-service';
 import { isNotEmpty, resolveErrorMessage } from '../../../../core/utils/common';
+import { buildFullEmail } from '../../../../core/utils/user';
 
 interface NewUserFormValue extends Omit<CreateNewUserRequest, 'roleCode' | 'birthDate'> {
   role: TpSelectOption | null;
@@ -67,8 +70,10 @@ export class NewUserDialog {
   readonly open = model(false);
   readonly created = output<void>();
   readonly createdError = signal<string | null>(null);
+  protected readonly emailDomain = environment.emailDomain;
 
   protected readonly isCreating = signal(false);
+  private readonly isEmailSyncedWithUsername = signal(true);
 
   protected readonly isSuperAdmin = computed(
     () => this.authService.currentUser()?.roleName === RoleName.SuperAdmin,
@@ -98,7 +103,9 @@ export class NewUserDialog {
       message: 'Username can only contain letters and numbers.',
     });
     required(user.email, { message: 'Email is required.' });
-    email(user.email, { message: 'Enter a valid email address.' });
+    pattern(user.email, EMAIL_LOCAL_PART_REGEX, {
+      message: 'Enter a valid email address.',
+    });
     required(user.employeeCode, { message: 'Employee Code is required.' });
     required(user.role, { message: 'Role is required.' });
   });
@@ -133,6 +140,21 @@ export class NewUserDialog {
         });
       }
     });
+
+    effect(() => {
+      const username = this.userForm.username().value();
+      if (!this.isEmailSyncedWithUsername()) return;
+
+      untracked(() => {
+        this.formModel.update((values) => ({ ...values, email: username }));
+      });
+    });
+  }
+
+  protected onEmailValueChange(value: unknown): void {
+    if (value !== this.userForm.username().value()) {
+      this.isEmailSyncedWithUsername.set(false);
+    }
   }
 
   protected createUser(): void {
@@ -152,7 +174,7 @@ export class NewUserDialog {
       lastName: values.lastName || null,
       displayName: values.displayName,
       username: values.username,
-      email: values.email,
+      email: buildFullEmail(values.email),
       employeeCode: values.employeeCode,
       roleCode,
       gender: values.gender,
@@ -249,6 +271,7 @@ export class NewUserDialog {
   }
 
   private resetForm(): void {
+    this.isEmailSyncedWithUsername.set(true);
     this.userForm().reset(this.createInitialFormValue());
   }
 
