@@ -76,6 +76,27 @@ public class UserController : ControllerBase
         return Ok(dtoResponse);
     }
 
+    [HttpPut("{userId:guid}")]
+    [Permissions(PermissionCodes.User.Update)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UpdateUserResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> UpdateUserAsync(
+        Guid userId,
+        [FromBody] UpdateUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = UpdateUserRequest.ToModel(request);
+        model.UserId = userId;
+
+        var result = await _userCommandService.UpdateUserAsync(model, cancellationToken);
+        return Ok(UpdateUserResponse.FromModel(result));
+    }
+
     [HttpPost("new-user")]
     [Permissions(PermissionCodes.User.Create)]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateNewUserResponse))]

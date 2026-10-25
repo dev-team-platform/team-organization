@@ -451,7 +451,7 @@ public static class FilterExtensions
             return nullGuard is null ? body : Expression.AndAlso(nullGuard, body);
         }
 
-        // Applies date/month/year extraction when the request asks for temporal filtering.
+        // Applies date/day/month/year extraction when the request asks for temporal filtering.
         private static (Expression ComparisonExpression, object ParsedValue) ApplyDateTimeFilterOptions(
             Expression comparableExpression,
             Type fieldType,
@@ -482,10 +482,14 @@ public static class FilterExtensions
 
             return options.TemporalPartType switch
             {
-                TemporalPartType.Date => BuildDatePartComparison(
+                TemporalPartType.DateOnly => BuildDatePartComparison(
                     comparableExpression,
                     fieldType,
                     rawValue
+                ),
+                TemporalPartType.Date => (
+                    Expression.Property(comparableExpression, nameof(DateTime.Day)),
+                    int.Parse(rawValue, CultureInfo.InvariantCulture)
                 ),
                 TemporalPartType.Month => (
                     Expression.Property(comparableExpression, nameof(DateTime.Month)),

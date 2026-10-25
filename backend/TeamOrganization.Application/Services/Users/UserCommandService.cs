@@ -155,6 +155,48 @@ public class UserCommandService : IUserCommandService
         };
     }
 
+    public async Task<UpdateUserResponseModel> UpdateUserAsync(UpdateUserRequestModel model, CancellationToken cancellationToken = default)
+    {
+        var currentUser = await _userQueryService.GetCurrentUserAsync(cancellationToken);
+
+        var user = await _userRepository.FindFirstByConditionAsync(
+            q => q.Where(x => x.Id == model.UserId),
+            trackChanges: true,
+            cancellationToken)
+            ?? throw new NotFoundException("User not found");
+
+        user.FirstName = model.FirstName;
+        user.LastName = model.LastName;
+        user.DisplayName = model.DisplayName;
+        user.EmployeeCode = model.EmployeeCode;
+        user.Gender = model.Gender;
+        user.BirthDate = model.BirthDate;
+
+        await _unitOfWork.SaveChangesAsync(currentUser.Id.ToString(), cancellationToken);
+
+        var currentUserKey = UserCacheKeys.GetCurrentUserKey(user.IdentitySubject);
+        await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
+
+        return new UpdateUserResponseModel
+        {
+            Id = user.Id,
+            IdentitySubject = user.IdentitySubject,
+            Username = user.Username,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DisplayName = user.DisplayName,
+            EmployeeCode = user.EmployeeCode,
+            Gender = user.Gender,
+            BirthDate = user.BirthDate,
+            UpdatedBy = new NavigationResponseModel
+            {
+                Id = currentUser.Id,
+                Name = currentUser.DisplayName
+            }
+        };
+    }
+
     public async Task UpdateLastLoginAsync(UpdateLastLoginRequestModel model, CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.FindFirstByConditionAsync(
