@@ -18,9 +18,8 @@
   min-height: 0;
   align-items: center;
   justify-content: space-between;
-
   gap: var(--tp-space-2);
-  padding: var(--tp-space-2);
+  padding: var(--tp-space-1);
 }
 
 .to-title-dialog__title {
@@ -33,6 +32,7 @@
 .to-title-dialog__close {
   --mat-button-text-focus-state-layer-opacity: 0;
   flex: 0 0 auto;
+  margin-top: 5px;
 }
 
 .to-title-dialog__body {
@@ -50,6 +50,10 @@
   display: flex;
   box-sizing: border-box;
   min-height: var(--tp-control-height-sm);
-  padding: var(--tp-space-2);
+  padding: var(--tp-space-1);
   align-items: center;
+}
+
+:host ::ng-deep .to-title-dialog__close .tp-icon {
+  --tp-icon-size: 24px;
 }

@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.to-birth-date-filter-menu {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  gap: var(--tp-space-3);
+  padding: var(--tp-space-3);
+}
+
+.to-birth-date-filter-menu__section {
+  display: grid;
+  min-width: 0;
+  gap: var(--tp-space-2);
+}
+
+.to-birth-date-filter-menu__section + .to-birth-date-filter-menu__section {
+  padding-top: var(--tp-space-3);
+  border-top: 1px solid var(--tp-color-border);
+}
+
+.to-birth-date-filter-menu__section h3 {
+  margin: 0;
+  color: var(--tp-color-text-primary);
+  font-size: var(--tp-font-size-default);
+  font-weight: 600;
+}
+
+.to-birth-date-filter-menu__section--disabled h3 {
+  color: var(--tp-color-text-secondary);
+}
+
+.to-birth-date-filter-menu__exact-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--tp-space-2);
+}
+
+.to-birth-date-filter-menu__age-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--tp-space-2);
+}
+
+.to-birth-date-filter-menu__age-fields > span {
+  color: var(--tp-color-text-secondary);
+}
+
+.to-birth-date-filter-menu__validation-error {
+  margin: 0;
+  color: var(--tp-color-red-600);
+  font-size: var(--tp-font-size-default);
+}
+
+.to-birth-date-filter-menu__actions,
+.to-birth-date-filter-menu__actions-right {
+  display: flex;
+  align-items: center;
+  gap: var(--tp-space-2);
+}
+
+.to-birth-date-filter-menu__actions {
+  justify-content: space-between;
+  padding-top: var(--tp-space-2);
+  border-top: 1px solid var(--tp-color-border);
+}
+
+.to-birth-date-filter-menu__actions-right {
+  margin-left: auto;
+}
+
+:host ::ng-deep .to-birth-date-filter-menu .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}

@@ -66,7 +66,11 @@
 
       <div class="to-edit-user-dialog__email-field">
         <div class="to-edit-user-dialog__email-input">
-          <tp-input title="Email" [formField]="userForm.email" width="100%"></tp-input>
+          <tp-input
+            title="Email"
+            [formField]="userForm.email"
+            width="100%"
+          ></tp-input>
         </div>
         <span class="to-edit-user-dialog__email-domain">&#64;{{ emailDomain }}</span>
       </div>
@@ -90,13 +94,19 @@
       color="blue"
       variant="filled"
       height="36px"
-      [disabled]="!userForm().valid()"
+      [disabled]="isSaving() || !userForm().valid()"
       (onClick)="saveChanges()"
     >
       Save Changes
     </tp-button>
 
-    <tp-button color="gray" variant="outlined" height="36px" (onClick)="cancel()">
+    <tp-button
+      color="gray"
+      variant="outlined"
+      height="36px"
+      [disabled]="isSaving()"
+      (onClick)="cancel()"
+    >
       Cancel
     </tp-button>
   </div>

@@ -10,7 +10,7 @@
       [tooltipTitle]="sideBarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
       (onClick)="sideBarToggle.emit()"
     >
-      <span class="tp-icon" aria-hidden="true">
+      <span class="tp-icon material-symbols-outlined" aria-hidden="true">
         {{ sideBarCollapsed() ? 'left_panel_open' : 'left_panel_close' }}
       </span>
     </tp-text-button>

@@ -19,23 +19,25 @@
           class="to-users-management__action-button"
           color="blue"
           variant="filled"
-          height="36px"
+          height="32px"
           tooltipTitle="Create a new user"
           (onClick)="openNewUserDialog()"
         >
-          <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
-          <span>New User</span>
+          <div class="to-users-management__action-button__content">
+            <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
+            <span style="margin-left: -3px">New User</span>
+          </div>
         </tp-button>
 
         <tp-button
           class="to-users-management__action-button"
           color="blue"
           variant="filled"
-          height="36px"
+          height="32px"
           tooltipTitle="Export users to Excel (coming soon)"
         >
           <span class="tp-icon material-symbols-outlined" aria-hidden="true">download</span>
-          <span>Export</span>
+          <span style="margin-left: -3px">Export</span>
         </tp-button>
       </div>
     </header>
@@ -56,8 +58,9 @@
           hoverShape="rect"
           contentAlignment="start"
           color="black"
-          (onClick)="openEditUserDialog(user)"
           width="100%"
+          [disabled]="isDisabledAction(user)"
+          (onClick)="openEditUserDialog(user)"
         >
           <span class="tp-icon material-symbols-outlined" aria-hidden="true">edit</span>
           <span>Edit</span>
@@ -68,6 +71,18 @@
           contentAlignment="start"
           color="black"
           width="100%"
+          [disabled]="isDisabledAction(user)"
+        >
+          <span class="tp-icon material-symbols-outlined" aria-hidden="true">swap_vert</span>
+          <span>Change Role</span>
+        </tp-text-button>
+        <tp-text-button
+          pressEffectShape="rect"
+          hoverShape="rect"
+          contentAlignment="start"
+          color="black"
+          width="100%"
+          [disabled]="isDisabledAction(user)"
         >
           <span class="tp-icon material-symbols-outlined" aria-hidden="true">block</span>
           <span>Disable</span>
@@ -119,12 +134,21 @@
             ></tp-input-autocomplete-multiselect>
           }
           @case ('birthDate') {
-            <tp-input-date-picker
+            <tp-input-filter
               [placeholder]="columnTitle(key)"
-              dateFormat="dd-MMM-yyyy"
-              [value]="birthDateFilter()"
-              (valueChange)="onBirthDateChange($event)"
-            ></tp-input-date-picker>
+              [value]="birthDateFilterDisplay()"
+              height="32px"
+              menuWidth="360px"
+              [(open)]="birthDateFilterOpen"
+              (onOpen)="onBirthDateFilterMenuOpen()"
+            >
+              <app-birth-date-filter-menu
+                [filter]="birthDateFilter()"
+                [resetKey]="birthDateFilterResetKey()"
+                (apply)="applyBirthDateFilter($event)"
+                (clear)="clearBirthDateFilter()"
+              ></app-birth-date-filter-menu>
+            </tp-input-filter>
           }
           @case ('lastLoginAt') {
             <tp-input-date-picker
@@ -146,19 +170,19 @@
       </ng-template>
 
       <ng-template tpTableCell="status" let-user>
-        <tp-chip [color]="getStatus(user).color" height="24px" fontSize="12px" variant="outlined">
+        <tp-chip [color]="getStatus(user).color" height="28px" variant="outlined">
           {{ getStatus(user).displayValue }}
         </tp-chip>
       </ng-template>
 
       <ng-template tpTableCell="roleName" let-user>
-        <tp-chip [color]="getRole(user).color" height="24px" fontSize="12px" variant="outlined">
+        <tp-chip [color]="getRole(user).color" height="28px" variant="outlined">
           {{ getRole(user).displayValue }}
         </tp-chip>
       </ng-template>
 
       <ng-template tpTableCell="gender" let-user>
-        <tp-chip [color]="getGender(user).color" height="24px" fontSize="12px" variant="outlined">
+        <tp-chip [color]="getGender(user).color" height="28px" variant="outlined">
           {{ getGender(user).displayValue }}
         </tp-chip>
       </ng-template>

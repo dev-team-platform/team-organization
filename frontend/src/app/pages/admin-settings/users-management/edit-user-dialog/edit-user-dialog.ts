@@ -1,14 +1,17 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   effect,
+  inject,
   input,
   model,
   output,
   signal,
   untracked,
 } from '@angular/core';
-import { FormField, form, pattern, required } from '@angular/forms/signals';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormField, disabled, form, required } from '@angular/forms/signals';
 import type { TpSelectOption } from '@team-platform/ui';
 import {
   TpButton,
@@ -17,13 +20,16 @@ import {
   TpInputSingleselect,
   TpRadio,
 } from '@team-platform/ui';
+import { EMPTY, catchError, finalize, tap } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import { TitleDialog } from '../../../../components/title-dialog/title-dialog';
-import { USERNAME_REGEX } from '../../../../core/constants/users';
 import { RoleName } from '../../../../core/enums/uam';
 import { UserGender } from '../../../../core/enums/users';
-import type { UserListItem } from '../../../../core/models/users';
-import { buildFullEmail } from '../../../../core/utils/user';
+import type { UpdateUserRequest, UserListItem } from '../../../../core/models/users';
+import { ClientCorrelationService } from '../../../../core/services/client-correlation-service';
+import { ToastService } from '../../../../core/services/toast-service';
+import { UserService } from '../../../../core/services/user-service';
+import { resolveErrorMessage } from '../../../../core/utils/common';
 
 interface EditUserFormValue {
   firstName: string;
@@ -53,6 +59,11 @@ interface EditUserFormValue {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EditUserDialog {
+  private readonly userService = inject(UserService);
+  private readonly clientCorrelationService = inject(ClientCorrelationService);
+  private readonly toastService = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
+
   readonly open = model(false);
   readonly user = input<UserListItem | null>(null);
   readonly updated = output<UserListItem>();
@@ -60,19 +71,23 @@ export class EditUserDialog {
   protected readonly emailDomain = environment.emailDomain;
   protected readonly genders = UserGender;
   protected readonly roleOptions = [RoleName.SuperAdmin, RoleName.Admin, RoleName.Employee];
+  protected readonly isSaving = signal(false);
 
   private readonly formModel = signal<EditUserFormValue>(this.createEmptyFormValue());
   protected readonly selectedGender = () => this.formModel().gender;
   protected readonly userForm = form(this.formModel, (user) => {
+    disabled(user.firstName, () => this.isSaving());
+    disabled(user.lastName, () => this.isSaving());
+    disabled(user.displayName, () => this.isSaving());
+    disabled(user.username);
+    disabled(user.email);
+    disabled(user.employeeCode, () => this.isSaving());
+    disabled(user.roleName);
+    disabled(user.gender, () => this.isSaving());
+    disabled(user.birthDate, () => this.isSaving());
     required(user.firstName, { message: 'First Name is required.' });
     required(user.displayName, { message: 'Display Name is required.' });
-    required(user.username, { message: 'Username is required.' });
-    pattern(user.username, USERNAME_REGEX, {
-      message: 'Username can only contain letters and numbers.',
-    });
-    required(user.email, { message: 'Email is required.' });
     required(user.employeeCode, { message: 'Employee Code is required.' });
-    required(user.roleName, { message: 'Role is required.' });
   });
 
   constructor() {
@@ -93,6 +108,8 @@ export class EditUserDialog {
   }
 
   protected saveChanges(): void {
+    if (this.isSaving()) return;
+
     const user = this.user();
     this.trimFormValues();
 
@@ -102,22 +119,57 @@ export class EditUserDialog {
     }
 
     const values = this.formModel();
-    this.updated.emit({
-      ...user,
-      firstName: values.firstName.trim(),
-      lastName: values.lastName.trim() || null,
-      displayName: values.displayName.trim(),
-      username: values.username.trim(),
-      email: buildFullEmail(values.email),
-      employeeCode: values.employeeCode.trim(),
-      roleName: typeof values.roleName === 'string' ? (values.roleName as RoleName) : user.roleName,
+    const request: UpdateUserRequest = {
+      firstName: values.firstName,
+      lastName: values.lastName || null,
+      displayName: values.displayName,
+      employeeCode: values.employeeCode,
       gender: values.gender,
       birthDate: values.birthDate ? this.formatDateOnly(values.birthDate) : null,
-    });
-    this.open.set(false);
+    };
+
+    this.isSaving.set(true);
+    this.clientCorrelationService.startAction();
+    this.userService
+      .updateUser(user.id, request)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        tap((response) => {
+          this.updated.emit({
+            ...user,
+            id: response.id,
+            username: response.username,
+            email: response.email,
+            firstName: response.firstName,
+            lastName: response.lastName,
+            displayName: response.displayName,
+            employeeCode: response.employeeCode,
+            gender: response.gender,
+            birthDate: response.birthDate,
+          });
+          this.toastService.enqueue({
+            type: 'success',
+            content: 'User updated successfully.',
+          });
+          this.open.set(false);
+        }),
+        catchError((error: unknown) => {
+          this.toastService.enqueue({
+            type: 'error',
+            content: resolveErrorMessage(error),
+          });
+          return EMPTY;
+        }),
+        finalize(() => {
+          this.clientCorrelationService.completeAction();
+          this.isSaving.set(false);
+        }),
+      )
+      .subscribe();
   }
 
   protected cancel(): void {
+    if (this.isSaving()) return;
     this.open.set(false);
   }
 
@@ -125,10 +177,7 @@ export class EditUserDialog {
     this.userForm.firstName().markAsTouched();
     this.userForm.lastName().markAsTouched();
     this.userForm.displayName().markAsTouched();
-    this.userForm.username().markAsTouched();
-    this.userForm.email().markAsTouched();
     this.userForm.employeeCode().markAsTouched();
-    this.userForm.roleName().markAsTouched();
   }
 
   private toFormValue(user: UserListItem): EditUserFormValue {
@@ -176,8 +225,6 @@ export class EditUserDialog {
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
       displayName: values.displayName.trim(),
-      username: values.username.trim(),
-      email: values.email.trim(),
       employeeCode: values.employeeCode.trim(),
     }));
   }

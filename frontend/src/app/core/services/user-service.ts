@@ -6,6 +6,8 @@ import type {
   CreateNewUserResponse,
   GetUsersRequest,
   GetUsersResponse,
+  UpdateUserRequest,
+  UpdateUserResponse,
 } from '../models/users';
 import { AppHttpContext } from './http-context';
 
@@ -30,6 +32,12 @@ export class UserService {
 
   createNewAdminUser(request: CreateNewUserRequest): Observable<CreateNewUserResponse> {
     return this.httpClient.post<CreateNewUserResponse>('users/new-admin-user', request, {
+      context: this.appHttpContext.baseContext,
+    });
+  }
+
+  updateUser(userId: string, request: UpdateUserRequest): Observable<UpdateUserResponse> {
+    return this.httpClient.put<UpdateUserResponse>(`users/${userId}`, request, {
       context: this.appHttpContext.baseContext,
     });
   }

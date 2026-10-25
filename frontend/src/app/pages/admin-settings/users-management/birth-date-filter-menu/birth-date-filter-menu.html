@@ -1,0 +1,99 @@
+<div class="to-birth-date-filter-menu">
+  <section
+    class="to-birth-date-filter-menu__section"
+    [class.to-birth-date-filter-menu__section--disabled]="exactDisabled()"
+    aria-labelledby="birth-date-filter-exact-title"
+  >
+    <h3 id="birth-date-filter-exact-title">Filter exactly</h3>
+    <div class="to-birth-date-filter-menu__exact-fields">
+      <tp-input
+        title="Date"
+        variant="number"
+        [min]="1"
+        [max]="31"
+        [step]="1"
+        [disabled]="exactDisabled()"
+        [value]="day()"
+        (valueChange)="setDay($event)"
+      ></tp-input>
+      <tp-input
+        title="Month"
+        variant="number"
+        [min]="1"
+        [max]="12"
+        [step]="1"
+        [disabled]="exactDisabled()"
+        [value]="month()"
+        (valueChange)="setMonth($event)"
+      ></tp-input>
+      <tp-input
+        title="Year"
+        variant="number"
+        [min]="1900"
+        [step]="1"
+        [disabled]="exactDisabled()"
+        [value]="year()"
+        (valueChange)="setYear($event)"
+      ></tp-input>
+    </div>
+  </section>
+
+  <section
+    class="to-birth-date-filter-menu__section"
+    [class.to-birth-date-filter-menu__section--disabled]="ageDisabled()"
+    aria-labelledby="birth-date-filter-age-title"
+  >
+    <h3 id="birth-date-filter-age-title">Filter by age</h3>
+    <div class="to-birth-date-filter-menu__age-fields">
+      <tp-input
+        title="From Age"
+        variant="number"
+        [min]="1"
+        [max]="200"
+        [step]="1"
+        [disabled]="ageDisabled()"
+        [value]="fromAge()"
+        (valueChange)="setFromAge($event)"
+      ></tp-input>
+      <span aria-hidden="true">-</span>
+      <tp-input
+        title="To Age"
+        variant="number"
+        [min]="1"
+        [max]="200"
+        [step]="1"
+        [disabled]="ageDisabled()"
+        [value]="toAge()"
+        (valueChange)="setToAge($event)"
+      ></tp-input>
+    </div>
+    @if (ageRangeInvalid()) {
+      <p class="to-birth-date-filter-menu__validation-error" role="alert">
+        From must be less than or equal To
+      </p>
+    }
+  </section>
+
+  <div class="to-birth-date-filter-menu__actions">
+    <tp-button
+      color="blue"
+      variant="outlined"
+      height="32px"
+      [disabled]="!hasAnyValue()"
+      (onClick)="clear.emit()"
+    >
+      Clear
+    </tp-button>
+    <div class="to-birth-date-filter-menu__actions-right">
+      <tp-button
+        color="blue"
+        variant="filled"
+        height="32px"
+        [disabled]="!canApply()"
+        (onClick)="applyFilter()"
+      >
+        Apply
+      </tp-button>
+    </div>
+  </div>
+</div>

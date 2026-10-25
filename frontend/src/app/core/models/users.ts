@@ -47,3 +47,25 @@ export interface CreateNewUserResponse {
   gender: UserGender;
   birthDate: string | null;
 }
+
+export interface UpdateUserRequest {
+  firstName: string;
+  lastName: string | null;
+  displayName: string;
+  employeeCode: string;
+  gender: UserGender;
+  birthDate: string | null;
+}
+
+export interface UpdateUserResponse {
+  id: string;
+  identitySubject: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string | null;
+  displayName: string;
+  employeeCode: string;
+  gender: UserGender;
+  birthDate: string | null;
+}
