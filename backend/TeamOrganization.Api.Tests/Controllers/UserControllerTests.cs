@@ -39,9 +39,16 @@ public class UserControllerTests
     {
         var response = new GetCurrentUserResponseModel
         {
-            Id = Guid.NewGuid(), IdentitySubject = "sub", Username = "alice", Email = "a@example.test",
-            EmployeeCode = "E1", FirstName = "Alice", DisplayName = "Alice", Gender = UserGender.Female,
-            RoleName = "Employee", PermissionCodes = ["users.read"]
+            Id = Guid.NewGuid(),
+            IdentitySubject = "sub",
+            Username = "alice",
+            Email = "a@example.test",
+            EmployeeCode = "E1",
+            FirstName = "Alice",
+            DisplayName = "Alice",
+            Gender = UserGender.Female,
+            RoleName = "Employee",
+            PermissionCodes = ["users.read"]
         };
         _queryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync(response);
 
@@ -64,7 +71,9 @@ public class UserControllerTests
 
         var result = (await _controller.GetAllUsersAsync(new GetAllUsersRequest
         {
-            CurrentPage = 2, ItemsPerPage = 10, SearchGlobalText = "alice"
+            CurrentPage = 2,
+            ItemsPerPage = 10,
+            SearchGlobalText = "alice"
         })).Should().BeOfType<OkObjectResult>().Which;
 
         result.Value.Should().BeOfType<GetAllUsersResponse>();
@@ -80,8 +89,14 @@ public class UserControllerTests
         UpdateUserRequestModel? capturedModel = null;
         var updated = new UpdateUserResponseModel
         {
-            Id = userId, IdentitySubject = "sub", Username = "alice", Email = "a@example.test",
-            FirstName = "Alice", DisplayName = "Alice", EmployeeCode = "E1", Gender = UserGender.Female
+            Id = userId,
+            IdentitySubject = "sub",
+            Username = "alice",
+            Email = "a@example.test",
+            FirstName = "Alice",
+            DisplayName = "Alice",
+            EmployeeCode = "E1",
+            Gender = UserGender.Female
         };
         _commandService.Setup(service => service.UpdateUserAsync(It.IsAny<UpdateUserRequestModel>(), It.IsAny<CancellationToken>()))
             .Callback<UpdateUserRequestModel, CancellationToken>((model, _) => capturedModel = model)
@@ -89,7 +104,10 @@ public class UserControllerTests
 
         var result = (await _controller.UpdateUserAsync(userId, new UpdateUserRequest
         {
-            FirstName = "Alice", DisplayName = "Alice", EmployeeCode = "E1", Gender = "Female"
+            FirstName = "Alice",
+            DisplayName = "Alice",
+            EmployeeCode = "E1",
+            Gender = "Female"
         })).Should().BeOfType<OkObjectResult>().Which;
 
         capturedModel!.UserId.Should().Be(userId);
@@ -116,7 +134,7 @@ public class UserControllerTests
         result.StatusCode.Should().Be(201);
         identityModel!.Username.Should().Be("alice");
         appModel!.IdentitySubject.Should().Be("identity-123");
-        appModel.RoleCode.Should().Be(RoleCodes.Employee);
+        appModel.RoleCode.Should().Be(RC.Employee);
         result.Value.Should().BeOfType<CreateNewUserResponse>().Which.Id.Should().Be(created.Id);
         _identityProvider.Verify(service => service.DeleteUserAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -126,7 +144,7 @@ public class UserControllerTests
     public async Task CreateNewUserAsync_ShouldThrowUnprocessableEntityException_WhenRoleIsNotEmployee()
     {
         var request = NewCreateRequest();
-        request.RoleCode = RoleCodes.Admin;
+        request.RoleCode = RC.Admin;
 
         Func<Task> act = () => _controller.CreateNewUserAsync(request);
         await act.Should().ThrowAsync<UnprocessableEntityException>();
@@ -138,7 +156,7 @@ public class UserControllerTests
     public async Task CreateNewAdminUserAsync_ShouldCreateAdminUser_WhenAdminRoleIsRequested()
     {
         var request = NewCreateRequest();
-        request.RoleCode = RoleCodes.Admin;
+        request.RoleCode = RC.Admin;
         _identityProvider.Setup(service => service.GetAccessTokenAsync(It.IsAny<CancellationToken>())).ReturnsAsync("token");
         _identityProvider.Setup(service => service.CreateNewUserAsync(
                 It.IsAny<string>(), It.IsAny<IdentityProviderNewUserRequestModel>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -150,7 +168,7 @@ public class UserControllerTests
 
         result.StatusCode.Should().Be(201);
         _commandService.Verify(service => service.CreateNewUserAsync(
-            It.Is<CreateUserRequestModel>(model => model.RoleCode == RoleCodes.Admin),
+            It.Is<CreateUserRequestModel>(model => model.RoleCode == RC.Admin),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -173,14 +191,26 @@ public class UserControllerTests
 
     private static CreateUserRequest NewCreateRequest() => new()
     {
-        Username = "alice", Email = "alice@example.test", FirstName = "Alice", LastName = "Smith",
-        DisplayName = "Alice Smith", EmployeeCode = "E1", RoleCode = RoleCodes.Employee, Gender = "Female"
+        Username = "alice",
+        Email = "alice@example.test",
+        FirstName = "Alice",
+        LastName = "Smith",
+        DisplayName = "Alice Smith",
+        EmployeeCode = "E1",
+        RoleCode = RC.Employee,
+        Gender = "Female"
     };
 
     private static CreateUserResponseModel NewCreateResponse() => new()
     {
-        Id = Guid.NewGuid(), IdentitySubject = "identity-123", Username = "alice", Email = "alice@example.test",
-        FirstName = "Alice", LastName = "Smith", DisplayName = "Alice Smith", EmployeeCode = "E1",
+        Id = Guid.NewGuid(),
+        IdentitySubject = "identity-123",
+        Username = "alice",
+        Email = "alice@example.test",
+        FirstName = "Alice",
+        LastName = "Smith",
+        DisplayName = "Alice Smith",
+        EmployeeCode = "E1",
         Gender = UserGender.Female
     };
 }

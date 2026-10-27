@@ -1,6 +1,6 @@
 namespace TeamOrganization.Domain.Constants.Uam;
 
-public static class RoleCodes
+public static class RC
 {
     public const string SuperAdmin = "SUPER_ADMIN";
     public const string Admin = "ADMIN";

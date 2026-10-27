@@ -18,13 +18,15 @@ public class UserQueryServiceTests
     private const string IdentitySubject = "subject-123";
 
     private readonly Mock<IUserRepository> _userRepository = new();
+    private readonly Mock<IUserRoleRepository> _userRoleRepository = new();
     private readonly Mock<ICurrentUserContext> _currentUserContext = new();
     private readonly Mock<ICacheService> _cacheService = new();
 
     private UserQueryService CreateService()
     {
         _currentUserContext.SetupGet(context => context.IdentitySubject).Returns(IdentitySubject);
-        return new UserQueryService(_userRepository.Object, _currentUserContext.Object, _cacheService.Object);
+        return new UserQueryService(
+            _userRepository.Object, _userRoleRepository.Object, _currentUserContext.Object, _cacheService.Object);
     }
 
     [Fact]

@@ -1,5 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using DocumentFormat.OpenXml.Office2016.Excel;
+using TeamOrganization.Api.Attributes;
 using TeamOrganization.Application.Models.Users;
+using TeamOrganization.Domain.Constants.Uam;
 using TeamOrganization.Domain.Enums.Users;
 using TeamOrganization.Domain.Utils;
 
@@ -31,10 +34,11 @@ public class CreateUserRequest
     public string EmployeeCode { get; set; } = null!;
 
     [Required(ErrorMessage = "Role Code is required.")]
+    [AllowedValues([RC.Admin, RC.Employee], ErrorMessage = "Invalid Role Code.")]
     public string RoleCode { get; set; } = null!;
 
     [Required(ErrorMessage = "Gender is required.")]
-    [MaxLength(20, ErrorMessage = "Gender cannot be longer than 20 characters.")]
+    [AllowedEnumValues(typeof(UserGender), ErrorMessage = "Invalid Gender")]
     public string Gender { get; set; } = null!;
     public DateOnly? BirthDate { get; set; }
 

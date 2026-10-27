@@ -4,6 +4,7 @@ using TeamOrganization.Application.Interfaces.Services.Cache;
 using TeamOrganization.Application.Interfaces.Services.Users;
 using TeamOrganization.Application.Models.Users;
 using TeamOrganization.Domain.Constants.CacheKeys;
+using TeamOrganization.Domain.Constants.Uam;
 using TeamOrganization.Domain.Exceptions;
 
 namespace TeamOrganization.Application.Services.Users;
@@ -11,15 +12,18 @@ namespace TeamOrganization.Application.Services.Users;
 public class UserQueryService : IUserQueryService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly ICacheService _cacheService;
 
     public UserQueryService(
         IUserRepository userRepository,
+        IUserRoleRepository userRoleRepository,
         ICurrentUserContext currentUserContext,
         ICacheService cacheService)
     {
         _userRepository = userRepository;
+        _userRoleRepository = userRoleRepository;
         _currentUserContext = currentUserContext;
         _cacheService = cacheService;
     }
@@ -48,6 +52,19 @@ public class UserQueryService : IUserQueryService
         await _cacheService.SetAsync(keyObj.Key, result, keyObj.Expiration, cancellationToken);
 
         return result;
+    }
+
+    public async Task<bool> IsSuperAdminAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var userRole = await _userRoleRepository.FindFirstByConditionAsync(
+            q => q.Where(x => x.UserId == userId
+                && x.Role.Code == RC.SuperAdmin
+                && x.EffectiveFrom <= now
+                && (x.EffectiveTo == null || x.EffectiveTo > now)),
+            cancellationToken: cancellationToken);
+
+        return userRole is not null;
     }
 
     public async Task<GetAllUsersResponseModel> GetAllUsersAsync(

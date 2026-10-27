@@ -1,6 +1,6 @@
 namespace TeamOrganization.Domain.Constants.Uam;
 
-public static class PermissionCodes
+public static class PC
 {
     public static class UserSelf
     {

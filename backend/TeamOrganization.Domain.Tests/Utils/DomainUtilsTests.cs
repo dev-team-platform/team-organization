@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using TeamOrganization.Domain.Constants.CacheKeys;
 using TeamOrganization.Domain.Entities;
 using TeamOrganization.Domain.Enums.Users;
 using TeamOrganization.Domain.Exceptions;
@@ -61,6 +62,38 @@ public class DomainUtilsTests
     {
         Sha256Utils.ComputeHexHash("hello").Should().Be(
             "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    }
+
+    [Fact]
+    public void Sha256Utils_Equals_ShouldReturnTrue_WhenHashesMatch()
+    {
+        Sha256Utils.Equals("abc123", "abc123").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Sha256Utils_Equals_ShouldReturnFalse_WhenHashesDiffer()
+    {
+        Sha256Utils.Equals("abc123", "abc124").Should().BeFalse();
+    }
+
+    [Fact]
+    public void OtpUtils_GenerateOtp_ShouldReturnTenAlphanumericCharacters_WhenCalled()
+    {
+        var otp = OtpUtils.GenerateOtp();
+
+        otp.Should().HaveLength(10);
+        otp.All(character => char.IsAsciiLetterOrDigit(character)).Should().BeTrue();
+    }
+
+    [Fact]
+    public void UserCacheKeys_GetDisableOtpLockKey_ShouldUseExpectedKeyAndJitteredExpiration_WhenCalled()
+    {
+        var userId = Guid.NewGuid();
+
+        var key = UserCacheKeys.GetDisableOtpLockKey(userId);
+
+        key.Key.Should().Be($"team-organization:users:disable-otp-lock:{userId}");
+        key.Expiration!.Value.TotalMinutes.Should().BeInRange(60, 75);
     }
 
     [Theory]

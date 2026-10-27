@@ -12,4 +12,14 @@ public static class Sha256Utils
 
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
+
+    public static bool Equals(string left, string right)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.ASCII.GetBytes(left),
+            Encoding.ASCII.GetBytes(right));
+    }
 }
