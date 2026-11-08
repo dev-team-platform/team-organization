@@ -10,7 +10,7 @@ using TeamOrganization.Infrastructure.Options;
 
 namespace TeamOrganization.Infrastructure.Services.RabbitMq;
 
-public sealed class RabbitMqConsumerHostedService : BackgroundService
+public sealed class RabbitMqConsumerBackgroundService : BackgroundService
 {
     private readonly RabbitMqConnection _connection;
     private readonly RabbitMqTopologyInitializer _topology;
@@ -18,7 +18,7 @@ public sealed class RabbitMqConsumerHostedService : BackgroundService
     private readonly IOptions<RabbitMqOptions> _options;
     private readonly Serilog.ILogger _logger;
 
-    public RabbitMqConsumerHostedService(
+    public RabbitMqConsumerBackgroundService(
         RabbitMqConnection connection,
         RabbitMqTopologyInitializer topology,
         IServiceScopeFactory scopeFactory,

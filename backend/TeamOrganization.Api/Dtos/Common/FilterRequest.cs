@@ -13,6 +13,7 @@ public abstract class FilterRequest<TModel> : PaginationRequest where TModel : c
     public string? GroupPattern { get; init; }
     public List<FilterCriterionRequest> FilterCriteria { get; init; } = [];
     public List<SortFieldRequest> SortFields { get; init; } = [];
+    public string? TimeZoneId { get; set; }
 
     public abstract FilterQueryMapRequest<TModel> GetFilterRequestMap();
 
@@ -77,6 +78,39 @@ public abstract class FilterRequest<TModel> : PaginationRequest where TModel : c
                     IsAscending = sortField.IsAscending
                 };
             })];
+    }
+
+    public TimeZoneInfo ParseTimeZone()
+    {
+        if (TimeZoneId is null)
+        {
+            return TimeZoneInfo.Utc;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            throw new UnprocessableEntityException(
+                "Invalid timezone ID.",
+                new()
+                {
+                    ["timeZoneId"] = TimeZoneId
+                }
+            );
+        }
+        catch (InvalidTimeZoneException)
+        {
+            throw new UnprocessableEntityException(
+                "Timezone is invalid or corrupted.",
+                new()
+                {
+                    ["timeZoneId"] = TimeZoneId
+                }
+            );
+        }
     }
 }
 

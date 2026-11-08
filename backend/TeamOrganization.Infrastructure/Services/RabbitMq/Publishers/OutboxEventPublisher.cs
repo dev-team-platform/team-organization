@@ -9,11 +9,11 @@ namespace TeamOrganization.Infrastructure.Services.RabbitMq.Publishers;
 public sealed class OutboxEventPublisher<TModel> : IMessagingPublisher<OutboxEvent<TModel>>
 {
     private const string PublisherName = "OrganizationEvents";
-    private readonly RabbitMqPublisherHostedService _publisher;
+    private readonly RabbitMqPublisherBackgroundService _publisher;
     private readonly Serilog.ILogger _logger;
 
     public OutboxEventPublisher(
-        RabbitMqPublisherHostedService publisher,
+        RabbitMqPublisherBackgroundService publisher,
         Serilog.ILogger logger)
     {
         _publisher = publisher;
@@ -65,6 +65,8 @@ public sealed class OutboxEventPublisher<TModel> : IMessagingPublisher<OutboxEve
                 "Unable to publish Organization integration event {MessageType} with routing key {RoutingKey}",
                 outboxEvent.Type,
                 outboxEvent.RoutingKey);
+            if (outboxEvent.ThrowOnFailure)
+                throw;
         }
     }
 

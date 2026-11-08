@@ -15,6 +15,8 @@ public class GetAllUsersRequest : FilterRequest<GetAllUsersResponseItem>
             .Map("lastName", x => x.LastName)
             .Map("displayName", x => x.DisplayName)
             .Map("roleName", x => x.RoleName)
+            .Map("createdBy", x => x.CreatedBy == null ? (Guid?)null : x.CreatedBy.Id)
+            .Map("updatedBy", x => x.UpdatedBy == null ? (Guid?)null : x.UpdatedBy.Id)
             .Map("status", x => x.Status)
             .Map("gender", x => x.Gender)
             .Map("birthDate", x => x.BirthDate)
@@ -30,7 +32,8 @@ public class GetAllUsersRequest : FilterRequest<GetAllUsersResponseItem>
             SearchGlobalText = request.SearchGlobalText,
             FilterGroup = request.BuildFilterGroup(),
             FilterCriteria = request.BuildFilterCriteria(),
-            SortFields = request.BuildSortFields()
+            SortFields = request.BuildSortFields(),
+            TimeZoneId = request.ParseTimeZone()
         };
     }
 }

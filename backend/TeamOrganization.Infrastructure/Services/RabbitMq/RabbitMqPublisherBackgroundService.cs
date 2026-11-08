@@ -6,7 +6,7 @@ using TeamOrganization.Infrastructure.Options;
 
 namespace TeamOrganization.Infrastructure.Services.RabbitMq;
 
-public sealed class RabbitMqPublisherHostedService : BackgroundService
+public sealed class RabbitMqPublisherBackgroundService : BackgroundService
 {
     private readonly RabbitMqConnection _connection;
     private readonly RabbitMqTopologyInitializer _topology;
@@ -21,7 +21,7 @@ public sealed class RabbitMqPublisherHostedService : BackgroundService
             AllowSynchronousContinuations = false
         });
 
-    public RabbitMqPublisherHostedService(
+    public RabbitMqPublisherBackgroundService(
         RabbitMqConnection connection,
         RabbitMqTopologyInitializer topology,
         IOptions<RabbitMqOptions> options,

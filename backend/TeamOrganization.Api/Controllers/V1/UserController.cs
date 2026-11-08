@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
-using TeamOrganization.Api.Constants;
 using TeamOrganization.Api.Attributes;
 using TeamOrganization.Api.Dtos.Common;
 using TeamOrganization.Api.Dtos.V1.Users;
@@ -20,7 +18,6 @@ namespace TeamOrganization.Api.Controllers.V1;
 [ApiVersion("1.0")]
 [ApiController]
 [Authorize]
-[EnableRateLimiting(RateLimiterPolicies.Default)]
 public class UserController : ControllerBase
 {
     private readonly Serilog.ILogger _logger;
@@ -94,7 +91,8 @@ public class UserController : ControllerBase
         model.UserId = userId;
 
         var result = await _userCommandService.UpdateUserAsync(model, cancellationToken);
-        return Ok(UpdateUserResponse.FromModel(result));
+        var dto = UpdateUserResponse.FromModel(result);
+        return Ok(dto);
     }
 
     [HttpPatch("disable/{userId:guid}")]
@@ -113,7 +111,8 @@ public class UserController : ControllerBase
     {
         var model = DisableUserConfirmationRequest.ToModel(request, userId);
         var result = await _userCommandService.ConfirmDisableUserAsync(model, cancellationToken);
-        return Ok(DisableUserConfirmationResponse.FromModel(result));
+        var dto = DisableUserConfirmationResponse.FromModel(result);
+        return Ok(dto);
     }
 
     [HttpPost("disable/{userId:guid}")]
@@ -132,7 +131,8 @@ public class UserController : ControllerBase
     {
         var model = DisableUserRequest.ToModel(request, userId);
         var result = await _userCommandService.DisableUserAsync(model, cancellationToken);
-        return Ok(DisableUserResponse.FromModel(result));
+        var dto = DisableUserResponse.FromModel(result);
+        return Ok(dto);
     }
 
     [HttpPatch("change-role/{userId:guid}")]
@@ -151,7 +151,8 @@ public class UserController : ControllerBase
     {
         var model = ChangeRoleConfirmationRequest.ToModel(request, userId);
         var result = await _userCommandService.ConfirmChangeRoleAsync(model, cancellationToken);
-        return Ok(ChangeRoleConfirmationResponse.FromModel(result));
+        var dto = ChangeRoleConfirmationResponse.FromModel(result);
+        return Ok(dto);
     }
 
     [HttpPost("change-role/{userId:guid}")]
@@ -170,7 +171,8 @@ public class UserController : ControllerBase
     {
         var model = ChangeRoleRequest.ToModel(request, userId);
         var result = await _userCommandService.ChangeRoleAsync(model, cancellationToken);
-        return Ok(ChangeRoleResponse.FromModel(result));
+        var dto = ChangeRoleResponse.FromModel(result);
+        return Ok(dto);
     }
 
     [HttpPost("new-user")]

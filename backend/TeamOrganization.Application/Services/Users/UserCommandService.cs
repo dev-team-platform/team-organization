@@ -11,6 +11,7 @@ using TeamOrganization.Application.Models.Users;
 using TeamOrganization.Domain.Constants.CacheKeys;
 using TeamOrganization.Domain.Constants.EventRoutingKeys;
 using TeamOrganization.Domain.Constants.Notifications;
+using TeamOrganization.Domain.Constants.Uam;
 using TeamOrganization.Domain.Entities;
 using TeamOrganization.Domain.Enums.Users;
 using TeamOrganization.Domain.Exceptions;
@@ -97,11 +98,10 @@ public class UserCommandService : IUserCommandService
             {
                 EventType = EventRoutingKeys.UserCreated,
                 CreatedById = creator.Id,
-                CreatedAt = DateTimeOffset.UtcNow,
                 Notification = new NotificationEventModel
                 {
                     Title = NotificationContents.CreatedUser.Title,
-                    Message = NotificationContents.CreatedUser.SuccessMessage,
+                    Content = NotificationContents.CreatedUser.SuccessContent,
                     Data = JsonSerializer.SerializeToDocument(eventData, JsonUtils.WebSerializerOptions),
                     Recipients =
                     [
@@ -165,7 +165,7 @@ public class UserCommandService : IUserCommandService
             cancellationToken)
             ?? throw new NotFoundException("User not found.");
 
-        if (await _userQueryService.IsSuperAdminAsync(user.Id, cancellationToken))
+        if (await _userQueryService.HasRolesAsync([RC.SuperAdmin], cancellationToken))
         {
             throw new ForbiddenException("You do not have permission to update this user");
         }
@@ -180,7 +180,7 @@ public class UserCommandService : IUserCommandService
         await _unitOfWork.SaveChangesAsync(currentUser.Id.ToString(), cancellationToken);
 
         var currentUserKey = UserCacheKeys.GetCurrentUserKey(user.IdentitySubject);
-        await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
+        await _cacheService.RemoveAsync(currentUserKey, cancellationToken);
 
         return new UpdateUserResponseModel
         {
@@ -210,24 +210,18 @@ public class UserCommandService : IUserCommandService
         var lockKey = UserCacheKeys.GetDisableOtpLockKey(model.UserId);
         await ThrowIfLockedAsync(lockKey, "You do not have permission to disable user.", cancellationToken);
 
-        var user = await FindUserAsync(model.UserId, trackChanges: false, cancellationToken);
-        await ThrowIfSuperAdminAsync(user, "You do not have permission to disable user.", cancellationToken);
+        var user = await FindUserAsync(model.UserId, trackChanges: true, cancellationToken);
+        await ThrowIfSuperAdminAsync("You do not have permission to disable user.", cancellationToken);
         if (user.Status == UserStatus.Inactive)
         {
             throw new ConflictException("User is already disabled.");
         }
 
         var otp = OtpUtils.GenerateOtp();
-        var otpKey = UserCacheKeys.GetDisableOtpKey(user.Id);
-        await _cacheService.SetAsync(
-            otpKey.Key,
-            new UserActionOtpChallengeModel
-            {
-                OtpHash = Sha256Utils.ComputeHexHash(otp),
-                RequestedById = currentUser.Id
-            },
-            otpKey.Expiration,
-            cancellationToken);
+        user.AdditionalData.DisableOtp = Sha256Utils.ComputeHexHash(otp);
+        user.AdditionalData.DisableOtpExpired = DateTimeOffset.UtcNow.AddMinutes(UserCacheKeys.OtpExpirationMinutes);
+        user.AdditionalData.DisableOtpRequestedById = currentUser.Id;
+        await _unitOfWork.SaveChangesAsync(currentUser.Id.ToString(), cancellationToken);
 
         var emailData = new DisableUserOtpEmailData
         {
@@ -259,34 +253,38 @@ public class UserCommandService : IUserCommandService
         CancellationToken cancellationToken = default)
     {
         var currentUser = await _userQueryService.GetCurrentUserAsync(cancellationToken);
-        var otpKey = UserCacheKeys.GetDisableOtpKey(model.UserId);
+        var user = await FindUserAsync(model.UserId, trackChanges: true, cancellationToken);
         var wrongTimesKey = UserCacheKeys.GetDisableOtpWrongTimesKey(model.UserId);
         var lockKey = UserCacheKeys.GetDisableOtpLockKey(model.UserId);
 
-        var challenge = await VerifyOtpAsync(
+        await VerifyOtpAsync(
             model.Otp,
-            otpKey,
+            user.AdditionalData.DisableOtp,
+            user.AdditionalData.DisableOtpExpired,
             wrongTimesKey,
             lockKey,
             "You do not have permission to disable user.",
+            user,
+            currentUser.Id,
+            () => ClearDisableOtp(user),
             cancellationToken);
 
-        if (challenge.RequestedById != currentUser.Id)
+        if (user.AdditionalData.DisableOtpRequestedById != currentUser.Id)
         {
             throw new ForbiddenException("You do not have permission to disable user.");
         }
 
-        var user = await FindUserAsync(model.UserId, trackChanges: true, cancellationToken);
-        await ThrowIfSuperAdminAsync(user, "You do not have permission to disable user.", cancellationToken);
+        await ThrowIfSuperAdminAsync("You do not have permission to disable user.", cancellationToken);
         if (user.Status == UserStatus.Inactive)
         {
             throw new ConflictException("User is already disabled.");
         }
 
         user.Status = UserStatus.Inactive;
+        ClearDisableOtp(user);
         await _unitOfWork.SaveChangesAsync(currentUser.Id.ToString(), cancellationToken);
-        await _cacheService.RemoveAsync(UserCacheKeys.GetCurrentUserKey(user.IdentitySubject).Key, cancellationToken);
-        await ClearOtpAsync(otpKey, wrongTimesKey, cancellationToken);
+        await _cacheService.RemoveAsync(UserCacheKeys.GetCurrentUserKey(user.IdentitySubject), cancellationToken);
+        await ClearWrongTimesAsync(wrongTimesKey, cancellationToken);
 
         return new DisableUserConfirmationResponseModel
         {
@@ -308,8 +306,8 @@ public class UserCommandService : IUserCommandService
         var lockKey = UserCacheKeys.GetChangeRoleOtpLockKey(model.UserId);
         await ThrowIfLockedAsync(lockKey, "You do not have permission to change role.", cancellationToken);
 
-        var user = await FindUserAsync(model.UserId, trackChanges: false, cancellationToken);
-        await ThrowIfSuperAdminAsync(user, "You do not have permission to change role.", cancellationToken);
+        var user = await FindUserAsync(model.UserId, trackChanges: true, cancellationToken);
+        await ThrowIfSuperAdminAsync("You do not have permission to change role.", cancellationToken);
 
         var currentAssignment = await FindCurrentUserRoleAsync(user.Id, trackChanges: false, cancellationToken);
         var currentRole = await FindRoleAsync(currentAssignment.RoleId, cancellationToken);
@@ -324,17 +322,11 @@ public class UserCommandService : IUserCommandService
         }
 
         var otp = OtpUtils.GenerateOtp();
-        var otpKey = UserCacheKeys.GetChangeRoleOtpKey(user.Id);
-        await _cacheService.SetAsync(
-            otpKey.Key,
-            new UserActionOtpChallengeModel
-            {
-                OtpHash = Sha256Utils.ComputeHexHash(otp),
-                RequestedById = currentUser.Id,
-                RoleCode = newRole.Code
-            },
-            otpKey.Expiration,
-            cancellationToken);
+        user.AdditionalData.ChangeRoleOtp = Sha256Utils.ComputeHexHash(otp);
+        user.AdditionalData.ChangeRoleOtpExpired = DateTimeOffset.UtcNow.AddMinutes(UserCacheKeys.OtpExpirationMinutes);
+        user.AdditionalData.ChangeRoleOtpRequestedById = currentUser.Id;
+        user.AdditionalData.ChangeRoleOtpRoleCode = newRole.Code;
+        await _unitOfWork.SaveChangesAsync(currentUser.Id.ToString(), cancellationToken);
 
         var emailData = new ChangeRoleOtpEmailData
         {
@@ -368,37 +360,40 @@ public class UserCommandService : IUserCommandService
         CancellationToken cancellationToken = default)
     {
         var currentUser = await _userQueryService.GetCurrentUserAsync(cancellationToken);
-        var otpKey = UserCacheKeys.GetChangeRoleOtpKey(model.UserId);
+        var user = await FindUserAsync(model.UserId, trackChanges: true, cancellationToken);
         var wrongTimesKey = UserCacheKeys.GetChangeRoleOtpWrongTimesKey(model.UserId);
         var lockKey = UserCacheKeys.GetChangeRoleOtpLockKey(model.UserId);
 
-        var challenge = await VerifyOtpAsync(
+        await VerifyOtpAsync(
             model.Otp,
-            otpKey,
+            user.AdditionalData.ChangeRoleOtp,
+            user.AdditionalData.ChangeRoleOtpExpired,
             wrongTimesKey,
             lockKey,
             "You do not have permission to change role.",
+            user,
+            currentUser.Id,
+            () => ClearChangeRoleOtp(user),
             cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(challenge.RoleCode))
+        if (string.IsNullOrWhiteSpace(user.AdditionalData.ChangeRoleOtpRoleCode))
         {
             throw new UnprocessableEntityException("The role change OTP is invalid or expired.");
         }
 
-        if (challenge.RequestedById != currentUser.Id)
+        if (user.AdditionalData.ChangeRoleOtpRequestedById != currentUser.Id)
         {
             throw new ForbiddenException("You do not have permission to change role.");
         }
 
-        var user = await FindUserAsync(model.UserId, trackChanges: true, cancellationToken);
-        await ThrowIfSuperAdminAsync(user, "You do not have permission to change role.", cancellationToken);
+        await ThrowIfSuperAdminAsync("You do not have permission to change role.", cancellationToken);
 
         var currentAssignment = await FindCurrentUserRoleAsync(user.Id, trackChanges: true, cancellationToken);
         var currentRole = await FindRoleAsync(currentAssignment.RoleId, cancellationToken);
         var newRole = await _roleRepository.FindFirstByConditionAsync(
-            q => q.Where(x => x.Code == challenge.RoleCode),
+            q => q.Where(x => x.Code == user.AdditionalData.ChangeRoleOtpRoleCode),
             cancellationToken: cancellationToken)
-            ?? throw new NotFoundException($"Role with code '{challenge.RoleCode}' not found");
+            ?? throw new NotFoundException($"Role with code '{user.AdditionalData.ChangeRoleOtpRoleCode}' not found");
 
         if (currentRole.Id == newRole.Id)
         {
@@ -431,9 +426,10 @@ public class UserCommandService : IUserCommandService
             existingAssignment.EffectiveTo = null;
         }
 
+        ClearChangeRoleOtp(user);
         await _unitOfWork.SaveChangesAsync(currentUser.Id.ToString(), cancellationToken);
-        await _cacheService.RemoveAsync(UserCacheKeys.GetCurrentUserKey(user.IdentitySubject).Key, cancellationToken);
-        await ClearOtpAsync(otpKey, wrongTimesKey, cancellationToken);
+        await _cacheService.RemoveAsync(UserCacheKeys.GetCurrentUserKey(user.IdentitySubject), cancellationToken);
+        await ClearWrongTimesAsync(wrongTimesKey, cancellationToken);
 
         return new ChangeRoleConfirmationResponseModel
         {
@@ -458,7 +454,7 @@ public class UserCommandService : IUserCommandService
         user.LastLoginAt = model.LastLoginAt;
 
         var currentUserKey = UserCacheKeys.GetCurrentUserKey(model.IdentitySubject);
-        await _cacheService.RemoveAsync(currentUserKey.Key, cancellationToken);
+        await _cacheService.RemoveAsync(currentUserKey, cancellationToken);
 
         await _unitOfWork.SaveChangesWithoutAuditAsync(cancellationToken);
     }
@@ -495,9 +491,9 @@ public class UserCommandService : IUserCommandService
             ?? throw new NotFoundException("Role not found.");
     }
 
-    private async Task ThrowIfSuperAdminAsync(User user, string message, CancellationToken cancellationToken)
+    private async Task ThrowIfSuperAdminAsync(string message, CancellationToken cancellationToken)
     {
-        if (await _userQueryService.IsSuperAdminAsync(user.Id, cancellationToken))
+        if (await _userQueryService.HasRolesAsync([RC.SuperAdmin], cancellationToken))
         {
             throw new ForbiddenException(message);
         }
@@ -508,41 +504,45 @@ public class UserCommandService : IUserCommandService
         string message,
         CancellationToken cancellationToken)
     {
-        if (await _cacheService.GetAsync<bool>(lockKey.Key, cancellationToken))
+        if (await _cacheService.GetAsync<bool>(lockKey, cancellationToken))
         {
             throw new ForbiddenException(message);
         }
     }
 
-    private async Task<UserActionOtpChallengeModel> VerifyOtpAsync(
+    private async Task VerifyOtpAsync(
         string otp,
-        CacheKeyObject otpKey,
+        string? otpHash,
+        DateTimeOffset? otpExpired,
         CacheKeyObject wrongTimesKey,
         CacheKeyObject lockKey,
         string lockedMessage,
+        User user,
+        Guid actorId,
+        Action clearOtp,
         CancellationToken cancellationToken)
     {
         await ThrowIfLockedAsync(lockKey, lockedMessage, cancellationToken);
 
-        var challenge = await _cacheService.GetAsync<UserActionOtpChallengeModel>(otpKey.Key, cancellationToken);
-        if (challenge is null)
+        if (otpHash is null || otpExpired is null || otpExpired <= DateTimeOffset.UtcNow)
         {
             throw new UnprocessableEntityException("The OTP is invalid or expired.");
         }
 
         var submittedHash = Sha256Utils.ComputeHexHash(otp);
-        var hashMatches = Sha256Utils.Equals(submittedHash, challenge.OtpHash);
+        var hashMatches = Sha256Utils.Equals(submittedHash, otpHash);
 
         if (!hashMatches)
         {
-            var wrongTimes = await _cacheService.GetAsync<int>(wrongTimesKey.Key, cancellationToken);
+            var wrongTimes = await _cacheService.GetAsync<int>(wrongTimesKey, cancellationToken);
             wrongTimes++;
-            await _cacheService.SetAsync(wrongTimesKey.Key, wrongTimes, wrongTimesKey.Expiration, cancellationToken);
+            await _cacheService.SetAsync(wrongTimesKey, wrongTimes, cancellationToken);
 
             if (wrongTimes > 5)
             {
-                await _cacheService.SetAsync(lockKey.Key, true, lockKey.Expiration, cancellationToken);
-                await _cacheService.RemoveAsync(otpKey.Key, cancellationToken);
+                await _cacheService.SetAsync(lockKey, true, cancellationToken);
+                clearOtp();
+                await _unitOfWork.SaveChangesAsync(actorId.ToString(), cancellationToken);
                 throw new ForbiddenException(lockedMessage);
             }
 
@@ -554,17 +554,28 @@ public class UserCommandService : IUserCommandService
                 }
             );
         }
-
-        return challenge;
     }
 
-    private async Task ClearOtpAsync(
-        CacheKeyObject otpKey,
+    private static void ClearDisableOtp(User user)
+    {
+        user.AdditionalData.DisableOtp = null;
+        user.AdditionalData.DisableOtpExpired = null;
+        user.AdditionalData.DisableOtpRequestedById = null;
+    }
+
+    private static void ClearChangeRoleOtp(User user)
+    {
+        user.AdditionalData.ChangeRoleOtp = null;
+        user.AdditionalData.ChangeRoleOtpExpired = null;
+        user.AdditionalData.ChangeRoleOtpRequestedById = null;
+        user.AdditionalData.ChangeRoleOtpRoleCode = null;
+    }
+
+    private Task ClearWrongTimesAsync(
         CacheKeyObject wrongTimesKey,
         CancellationToken cancellationToken)
     {
-        await _cacheService.RemoveAsync(otpKey.Key, cancellationToken);
-        await _cacheService.RemoveAsync(wrongTimesKey.Key, cancellationToken);
+        return _cacheService.RemoveAsync(wrongTimesKey, cancellationToken);
     }
 
     private Task PublishOtpEmailAsync(
@@ -583,7 +594,6 @@ public class UserCommandService : IUserCommandService
                 {
                     EventType = eventType,
                     CreatedById = currentUser.Id,
-                    CreatedAt = DateTimeOffset.UtcNow,
                     Email = new EmailEventModel
                     {
                         TemplateKey = templateKey,

@@ -4,7 +4,6 @@ using TeamOrganization.Application.Interfaces.Services.Cache;
 using TeamOrganization.Application.Interfaces.Services.Users;
 using TeamOrganization.Application.Models.Users;
 using TeamOrganization.Domain.Constants.CacheKeys;
-using TeamOrganization.Domain.Constants.Uam;
 using TeamOrganization.Domain.Exceptions;
 
 namespace TeamOrganization.Application.Services.Users;
@@ -12,18 +11,15 @@ namespace TeamOrganization.Application.Services.Users;
 public class UserQueryService : IUserQueryService
 {
     private readonly IUserRepository _userRepository;
-    private readonly IUserRoleRepository _userRoleRepository;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly ICacheService _cacheService;
 
     public UserQueryService(
         IUserRepository userRepository,
-        IUserRoleRepository userRoleRepository,
         ICurrentUserContext currentUserContext,
         ICacheService cacheService)
     {
         _userRepository = userRepository;
-        _userRoleRepository = userRoleRepository;
         _currentUserContext = currentUserContext;
         _cacheService = cacheService;
     }
@@ -32,7 +28,7 @@ public class UserQueryService : IUserQueryService
     {
         var keyObj = UserCacheKeys.GetCurrentUserKey(_currentUserContext.IdentitySubject);
         var cachedUser = await _cacheService.GetAsync<GetCurrentUserResponseModel>(
-            keyObj.Key,
+            keyObj,
             cancellationToken);
 
         if (cachedUser is not null && !string.IsNullOrWhiteSpace(cachedUser.IdentitySubject))
@@ -42,29 +38,16 @@ public class UserQueryService : IUserQueryService
 
         if (cachedUser is not null)
         {
-            await _cacheService.RemoveAsync(keyObj.Key, cancellationToken);
+            await _cacheService.RemoveAsync(keyObj, cancellationToken);
         }
 
         var result = await _userRepository.FindCurrentUserByIdentitySubjectAsync(
             _currentUserContext.IdentitySubject,
             cancellationToken) ?? throw new NotFoundException($"User not found.");
 
-        await _cacheService.SetAsync(keyObj.Key, result, keyObj.Expiration, cancellationToken);
+        await _cacheService.SetAsync(keyObj, result, cancellationToken);
 
         return result;
-    }
-
-    public async Task<bool> IsSuperAdminAsync(Guid userId, CancellationToken cancellationToken = default)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var userRole = await _userRoleRepository.FindFirstByConditionAsync(
-            q => q.Where(x => x.UserId == userId
-                && x.Role.Code == RC.SuperAdmin
-                && x.EffectiveFrom <= now
-                && (x.EffectiveTo == null || x.EffectiveTo > now)),
-            cancellationToken: cancellationToken);
-
-        return userRole is not null;
     }
 
     public async Task<GetAllUsersResponseModel> GetAllUsersAsync(
@@ -73,5 +56,19 @@ public class UserQueryService : IUserQueryService
     {
         var result = await _userRepository.FindAllUsersAsync(model, cancellationToken);
         return GetAllUsersResponseModel.FromFilterResult(result);
+    }
+
+    public async Task<bool> HasRolesAsync(IReadOnlyList<string> roleCodes, CancellationToken cancellationToken = default)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        return roleCodes.Contains(user.RoleCode);
+    }
+
+    public async Task<bool> HasPermissionsAsync(IReadOnlyList<string> permissionCodes, bool requiredAll = false, CancellationToken cancellationToken = default)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        return requiredAll
+            ? permissionCodes.All(requiredCode => user.PermissionCodes.Contains(requiredCode, StringComparer.Ordinal))
+            : permissionCodes.Any(requiredCode => user.PermissionCodes.Contains(requiredCode, StringComparer.Ordinal));
     }
 }

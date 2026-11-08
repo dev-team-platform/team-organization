@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TeamOrganization.Domain.Entities;
 using TeamOrganization.Domain.Enums.Users;
+using TeamOrganization.Infrastructure.Persistence.Interceptors;
 
 namespace TeamOrganization.Infrastructure.Persistence.Configurations;
 
@@ -72,6 +73,27 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(x => x.LastLoginAt)
             .HasColumnName("last_login_at");
+
+        builder.ComplexProperty(x => x.AdditionalData, additionalData =>
+        {
+            additionalData.ToJson("additional_data");
+            additionalData.Property(x => x.DisableOtp)
+                .HasJsonPropertyName("disableOtp")
+                .HasAnnotation(AuditSaveChangesInterceptor.AuditIgnoreAnnotation, true);
+            additionalData.Property(x => x.DisableOtpExpired)
+                .HasJsonPropertyName("disableOtpExpired");
+            additionalData.Property(x => x.DisableOtpRequestedById)
+                .HasJsonPropertyName("disableOtpRequestedById");
+            additionalData.Property(x => x.ChangeRoleOtp)
+                .HasJsonPropertyName("changeRoleOtp")
+                .HasAnnotation(AuditSaveChangesInterceptor.AuditIgnoreAnnotation, true);
+            additionalData.Property(x => x.ChangeRoleOtpExpired)
+                .HasJsonPropertyName("changeRoleOtpExpired");
+            additionalData.Property(x => x.ChangeRoleOtpRequestedById)
+                .HasJsonPropertyName("changeRoleOtpRequestedById");
+            additionalData.Property(x => x.ChangeRoleOtpRoleCode)
+                .HasJsonPropertyName("changeRoleOtpRoleCode");
+        });
 
         builder.HasIndex(x => x.IdentitySubject)
             .IsUnique();

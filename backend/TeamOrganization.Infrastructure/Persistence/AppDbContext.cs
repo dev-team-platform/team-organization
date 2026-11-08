@@ -21,6 +21,7 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<FileStorage> FileStorages => Set<FileStorage>();
     #endregion
 
     public async Task<int> SaveChangesAsync(

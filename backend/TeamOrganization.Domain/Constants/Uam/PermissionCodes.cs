@@ -13,6 +13,7 @@ public static class PC
         public const string Read = "user.read";
         public const string Create = "user.create";
         public const string Update = "user.update";
+        public const string Export = "user.export";
     }
 
     public static class Admin

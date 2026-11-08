@@ -33,4 +33,10 @@ public class GetAllUsersResponseModelItem
     public UserGender Gender { get; init; }
     public DateOnly? BirthDate { get; init; }
     public DateTimeOffset? LastLoginAt { get; init; }
+    public bool IsPendingDisabled { get; init; }
+    public bool IsPendingChangedRole { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public NavigationResponseModel? CreatedBy { get; init; }
+    public DateTimeOffset? UpdatedAt { get; init; }
+    public NavigationResponseModel? UpdatedBy { get; init; }
 }

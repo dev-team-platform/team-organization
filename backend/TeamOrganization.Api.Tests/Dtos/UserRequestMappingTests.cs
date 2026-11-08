@@ -1,5 +1,7 @@
 using AwesomeAssertions;
 using TeamOrganization.Api.Dtos.V1.Users;
+using TeamOrganization.Application.Models.Common;
+using TeamOrganization.Application.Models.Users;
 using TeamOrganization.Domain.Enums.Common;
 using TeamOrganization.Domain.Enums.Users;
 using TeamOrganization.Domain.Exceptions;
@@ -10,12 +12,88 @@ namespace TeamOrganization.Api.Tests.Dtos;
 public class UserRequestMappingTests
 {
     [Fact]
+    public void GetAllUsersResponse_FromModel_ShouldMapPendingActionFlags_WhenUsersArePending()
+    {
+        var response = GetAllUsersResponse.FromModel(new GetAllUsersResponseModel
+        {
+            Items =
+            [
+                new GetAllUsersResponseModelItem
+                {
+                    Id = Guid.NewGuid(),
+                    EmployeeCode = "E1",
+                    Username = "alice",
+                    Email = "alice@example.test",
+                    FirstName = "Alice",
+                    DisplayName = "Alice",
+                    Status = UserStatus.Active,
+                    Gender = UserGender.Female,
+                    IsPendingDisabled = true,
+                    IsPendingChangedRole = false
+                }
+            ],
+            CurrentPage = 1,
+            ItemsPerPage = 10,
+            TotalItems = 1,
+            TotalPages = 1
+        });
+
+        response.Items.Single().IsPendingDisabled.Should().BeTrue();
+        response.Items.Single().IsPendingChangedRole.Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetAllUsersResponse_FromModel_ShouldMapAuditMetadata_WhenPresent()
+    {
+        var createdDate = DateTimeOffset.UtcNow.AddDays(-2);
+        var updatedDate = DateTimeOffset.UtcNow.AddHours(-1);
+        var createdById = Guid.NewGuid();
+        var updatedById = Guid.NewGuid();
+
+        var response = GetAllUsersResponse.FromModel(new GetAllUsersResponseModel
+        {
+            Items =
+            [
+                new GetAllUsersResponseModelItem
+                {
+                    Id = Guid.NewGuid(),
+                    EmployeeCode = "E1",
+                    Username = "alice",
+                    Email = "alice@example.test",
+                    FirstName = "Alice",
+                    DisplayName = "Alice",
+                    Status = UserStatus.Active,
+                    Gender = UserGender.Female,
+                    CreatedAt = createdDate,
+                    CreatedBy = new NavigationResponseModel { Id = createdById, Name = "Creator" },
+                    UpdatedAt = updatedDate,
+                    UpdatedBy = new NavigationResponseModel { Id = updatedById, Name = "Updater" }
+                }
+            ]
+        });
+
+        var item = response.Items.Single();
+        item.CreatedAt.Should().Be(createdDate);
+        item.CreatedBy!.Id.Should().Be(createdById);
+        item.CreatedBy.Name.Should().Be("Creator");
+        item.UpdatedAt.Should().Be(updatedDate);
+        item.UpdatedBy!.Id.Should().Be(updatedById);
+        item.UpdatedBy.Name.Should().Be("Updater");
+    }
+
+    [Fact]
     public void CreateUserRequest_ToModel_ShouldMapFieldsAndParseGender_WhenRequestIsValid()
     {
         var request = new CreateUserRequest
         {
-            Username = "alice", Email = "alice@example.test", FirstName = "Alice", LastName = "Smith",
-            DisplayName = "Alice Smith", EmployeeCode = "E-12", RoleCode = "EMPLOYEE", Gender = "female",
+            Username = "alice",
+            Email = "alice@example.test",
+            FirstName = "Alice",
+            LastName = "Smith",
+            DisplayName = "Alice Smith",
+            EmployeeCode = "E-12",
+            RoleCode = "EMPLOYEE",
+            Gender = "female",
             BirthDate = new DateOnly(1990, 4, 3)
         };
 
@@ -33,8 +111,12 @@ public class UserRequestMappingTests
     {
         var request = new UpdateUserRequest
         {
-            FirstName = "Alice", LastName = "Smith", DisplayName = "Alice Smith",
-            EmployeeCode = "E-12", Gender = "Unknown", BirthDate = new DateOnly(1990, 4, 3)
+            FirstName = "Alice",
+            LastName = "Smith",
+            DisplayName = "Alice Smith",
+            EmployeeCode = "E-12",
+            Gender = "Unknown",
+            BirthDate = new DateOnly(1990, 4, 3)
         };
 
         var model = UpdateUserRequest.ToModel(request);
@@ -72,6 +154,37 @@ public class UserRequestMappingTests
         model.FilterCriteria[0].Operator.Should().Be(FilterOperator.Contains);
         model.SortFields[0].FieldName.Should().Be("displayName");
         model.SortFields[0].IsAscending.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetAllUsersRequest_ToModel_ShouldAcceptCreatedByAndUpdatedByIdFilters_WhenRequestIsValid()
+    {
+        var createdById = Guid.NewGuid();
+        var updatedById = Guid.NewGuid();
+        var request = new GetAllUsersRequest
+        {
+            GroupPattern = "{0} AND {1}",
+            FilterCriteria =
+            [
+                new() { FieldName = "createdBy", Operator = "Equals", Values = [createdById.ToString()] },
+                new() { FieldName = "updatedBy", Operator = "Equals", Values = [updatedById.ToString()] }
+            ]
+        };
+
+        var model = GetAllUsersRequest.ToModel(request);
+        var applicationFilterMap = model.GetFilterQueryMap();
+        var apiFilterMap = request.GetFilterRequestMap();
+
+        model.FilterCriteria.Select(criterion => criterion.FieldName)
+            .Should().BeEquivalentTo("createdBy", "updatedBy");
+        applicationFilterMap.TryGetField("createdBy", out var createdByField).Should().BeTrue();
+        applicationFilterMap.TryGetField("updatedBy", out var updatedByField).Should().BeTrue();
+        createdByField.FieldType.Should().Be(typeof(Guid?));
+        updatedByField.FieldType.Should().Be(typeof(Guid?));
+        apiFilterMap.TryGetField("createdBy", out var createdByRequestField).Should().BeTrue();
+        apiFilterMap.TryGetField("updatedBy", out var updatedByRequestField).Should().BeTrue();
+        createdByRequestField.FieldType.Should().Be(typeof(Guid?));
+        updatedByRequestField.FieldType.Should().Be(typeof(Guid?));
     }
 
     [Fact]

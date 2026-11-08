@@ -34,6 +34,12 @@ public class GetAllUsersResponseItem
     public string Gender { get; init; } = null!;
     public DateOnly? BirthDate { get; init; }
     public DateTimeOffset? LastLoginAt { get; init; }
+    public bool IsPendingDisabled { get; init; }
+    public bool IsPendingChangedRole { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public NavigationResponse? CreatedBy { get; init; }
+    public DateTimeOffset? UpdatedAt { get; init; }
+    public NavigationResponse? UpdatedBy { get; init; }
 
     public static GetAllUsersResponseItem FromModel(GetAllUsersResponseModelItem modelItem)
     {
@@ -51,7 +57,13 @@ public class GetAllUsersResponseItem
             Status = EnumUtils.ToString(modelItem.Status),
             Gender = EnumUtils.ToString(modelItem.Gender),
             BirthDate = modelItem.BirthDate,
-            LastLoginAt = modelItem.LastLoginAt
+            LastLoginAt = modelItem.LastLoginAt,
+            IsPendingDisabled = modelItem.IsPendingDisabled,
+            IsPendingChangedRole = modelItem.IsPendingChangedRole,
+            CreatedAt = modelItem.CreatedAt,
+            CreatedBy = NavigationResponse.FromModel(modelItem.CreatedBy),
+            UpdatedAt = modelItem.UpdatedAt,
+            UpdatedBy = NavigationResponse.FromModel(modelItem.UpdatedBy)
         };
     }
 }

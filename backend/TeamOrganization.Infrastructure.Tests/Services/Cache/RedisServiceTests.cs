@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using Moq;
 using StackExchange.Redis;
 using TeamOrganization.Infrastructure.Services.Cache;
+using TeamOrganization.Domain.Constants.CacheKeys;
 using Xunit;
 
 namespace TeamOrganization.Infrastructure.Tests.Services.Cache;
@@ -24,7 +25,7 @@ public class RedisServiceTests
             .ReturnsAsync("{\"name\":\"Alice\"}");
         var service = new RedisService(_connection.Object);
 
-        var result = await service.GetAsync<CachedUser>("users:42");
+        var result = await service.GetAsync<CachedUser>(new CacheKeyObject { Key = "users:42" });
 
         result!.Name.Should().Be("Alice");
     }
@@ -35,7 +36,7 @@ public class RedisServiceTests
         _database.Setup(database => database.StringGetAsync("users:missing", It.IsAny<CommandFlags>()))
             .ReturnsAsync(RedisValue.Null);
 
-        var result = await new RedisService(_connection.Object).GetAsync<CachedUser>("users:missing");
+        var result = await new RedisService(_connection.Object).GetAsync<CachedUser>(new CacheKeyObject { Key = "users:missing" });
 
         result.Should().BeNull();
     }
@@ -43,7 +44,7 @@ public class RedisServiceTests
     [Fact]
     public async Task GetAsync_ShouldThrowArgumentException_WhenKeyIsBlank()
     {
-        Func<Task> act = () => new RedisService(_connection.Object).GetAsync<CachedUser>(" ");
+        Func<Task> act = () => new RedisService(_connection.Object).GetAsync<CachedUser>(new CacheKeyObject { Key = " " });
         await act.Should().ThrowAsync<ArgumentException>();
 
         _database.Verify(database => database.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()), Times.Never);
@@ -61,7 +62,7 @@ public class RedisServiceTests
                 (_, _, expiration, _, _) => actualExpiration = expiration)
             .ReturnsAsync(true);
 
-        await new RedisService(_connection.Object).SetAsync("users:42", new CachedUser { Name = "Alice" }, expiry);
+        await new RedisService(_connection.Object).SetAsync(new CacheKeyObject { Key = "users:42", Expiration = expiry }, new CachedUser { Name = "Alice" });
 
         _database.Verify(database => database.StringSetAsync(
             "users:42",
@@ -81,7 +82,7 @@ public class RedisServiceTests
             .ReturnsAsync(false);
 
         Func<Task> act = () => new RedisService(_connection.Object).SetAsync(
-            "users:42", new CachedUser { Name = "Alice" });
+            new CacheKeyObject { Key = "users:42" }, new CachedUser { Name = "Alice" });
         var exception = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
 
         exception.Message.Should().Contain("users:42");
@@ -92,7 +93,7 @@ public class RedisServiceTests
     {
         _database.Setup(database => database.KeyDeleteAsync("users:42", CommandFlags.None)).ReturnsAsync(true);
 
-        await new RedisService(_connection.Object).RemoveAsync("users:42");
+        await new RedisService(_connection.Object).RemoveAsync(new CacheKeyObject { Key = "users:42" });
 
         _database.Verify(database => database.KeyDeleteAsync("users:42", CommandFlags.None), Times.Once);
     }

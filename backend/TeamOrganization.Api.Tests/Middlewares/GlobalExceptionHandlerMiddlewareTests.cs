@@ -11,6 +11,20 @@ namespace TeamOrganization.Api.Tests.Middlewares;
 
 public class GlobalExceptionHandlerMiddlewareTests
 {
+    [Fact]
+    public async Task InvokeAsync_ShouldPassContextToNextDelegate_WhenRequestSucceeds()
+    {
+        var context = new DefaultHttpContext();
+        HttpContext? received = null;
+        var middleware = new GlobalExceptionHandlerMiddleware(
+            current => { received = current; return Task.CompletedTask; },
+            Mock.Of<Serilog.ILogger>());
+
+        await middleware.InvokeAsync(context);
+
+        received.Should().BeSameAs(context);
+    }
+
     [Theory]
     [InlineData(typeof(UnauthorizedException), 401)]
     [InlineData(typeof(ForbiddenException), 403)]

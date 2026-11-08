@@ -145,7 +145,7 @@ public class UserCommandServiceTests
             EmployeeCode = "E2", Gender = UserGender.Female
         };
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync(currentUser);
-        _userQueryService.Setup(service => service.IsSuperAdminAsync(user.Id, It.IsAny<CancellationToken>()))
+        _userQueryService.Setup(service => service.HasRolesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
                 It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
@@ -160,11 +160,11 @@ public class UserCommandServiceTests
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(
             currentUser.Id.ToString(), It.IsAny<CancellationToken>()), Times.Once);
         _cacheService.Verify(cache => cache.RemoveAsync(
-            UserCacheKeys.GetCurrentUserKey(user.IdentitySubject).Key, It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<CacheKeyObject>(key => key.Key == UserCacheKeys.GetCurrentUserKey(user.IdentitySubject).Key), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task UpdateUserAsync_ShouldThrowForbiddenExceptionWithoutUpdating_WhenUserIsSuperAdmin()
+    public async Task UpdateUserAsync_ShouldThrowForbiddenExceptionWithoutUpdating_WhenCurrentUserIsSuperAdmin()
     {
         var currentUser = CurrentUser();
         var user = new User
@@ -173,7 +173,7 @@ public class UserCommandServiceTests
             FirstName = "Old", LastName = "Name", DisplayName = "Old Name", EmployeeCode = "E1"
         };
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>())).ReturnsAsync(currentUser);
-        _userQueryService.Setup(service => service.IsSuperAdminAsync(user.Id, It.IsAny<CancellationToken>()))
+        _userQueryService.Setup(service => service.HasRolesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
                 It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
@@ -191,7 +191,7 @@ public class UserCommandServiceTests
         user.EmployeeCode.Should().Be("E1");
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _cacheService.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _cacheService.Verify(cache => cache.RemoveAsync(It.IsAny<CacheKeyObject>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -211,11 +211,11 @@ public class UserCommandServiceTests
 
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _cacheService.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _cacheService.Verify(cache => cache.RemoveAsync(It.IsAny<CacheKeyObject>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task DisableUserAsync_ShouldCacheHashedOtpAndPublishEmail_WhenUserIsActive()
+    public async Task DisableUserAsync_ShouldSaveHashedOtpToUserAndPublishEmail_WhenUserIsActive()
     {
         var currentUser = CurrentUser();
         var user = new User
@@ -223,26 +223,17 @@ public class UserCommandServiceTests
             Id = Guid.NewGuid(), IdentitySubject = "target-subject", Username = "alice",
             Email = "alice@example.test", DisplayName = "Alice", Status = UserStatus.Active
         };
-        UserActionOtpChallengeModel? savedChallenge = null;
-        TimeSpan? savedExpiration = null;
         OutboxEvent<SendNotificationEventModel>? publishedEvent = null;
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(currentUser);
-        _userQueryService.Setup(service => service.IsSuperAdminAsync(user.Id, It.IsAny<CancellationToken>()))
+        _userQueryService.Setup(service => service.HasRolesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
-                It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), false, It.IsAny<CancellationToken>()))
+                It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _cacheService.Setup(cache => cache.SetAsync(
-                UserCacheKeys.GetDisableOtpKey(user.Id).Key,
-                It.IsAny<UserActionOtpChallengeModel>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<string, UserActionOtpChallengeModel, TimeSpan?, CancellationToken>(
-                (_, challenge, expiration, _) =>
-                {
-                    savedChallenge = challenge;
-                    savedExpiration = expiration;
-                })
-            .Returns(Task.CompletedTask);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(
+                currentUser.Id.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
         _messagingPublisher.Setup(publisher => publisher.HandleAsync(
                 It.IsAny<OutboxEvent<SendNotificationEventModel>>(), It.IsAny<CancellationToken>()))
             .Callback<OutboxEvent<SendNotificationEventModel>, CancellationToken>((message, _) => publishedEvent = message)
@@ -252,14 +243,15 @@ public class UserCommandServiceTests
 
         result.UserId.Should().Be(user.Id);
         result.OtpExpiresInMinutes.Should().Be(UserCacheKeys.OtpExpirationMinutes);
-        savedExpiration.Should().Be(TimeSpan.FromMinutes(UserCacheKeys.OtpExpirationMinutes));
-        savedChallenge.Should().NotBeNull();
+        user.AdditionalData.DisableOtp.Should().NotBeNull();
+        user.AdditionalData.DisableOtpExpired.Should().BeAfter(DateTimeOffset.UtcNow);
+        user.AdditionalData.DisableOtpExpired.Should().BeBefore(DateTimeOffset.UtcNow.AddMinutes(UserCacheKeys.OtpExpirationMinutes + 1));
+        user.AdditionalData.DisableOtpRequestedById.Should().Be(currentUser.Id);
         var email = publishedEvent!.Data.Email!;
         email.TemplateKey.Should().Be("DisableUser");
         email.Recipients.Single().Email.Should().Be(currentUser.Email);
         var otp = email.Data!.RootElement.GetProperty("otpCode").GetString();
-        savedChallenge!.OtpHash.Should().Be(Sha256Utils.ComputeHexHash(otp!));
-        savedChallenge.RequestedById.Should().Be(currentUser.Id);
+        user.AdditionalData.DisableOtp.Should().Be(Sha256Utils.ComputeHexHash(otp!));
         publishedEvent.Type.Should().Be(EventRoutingKeys.UserDisableOtpRequested);
     }
 
@@ -270,23 +262,22 @@ public class UserCommandServiceTests
         var currentUser = CurrentUser();
         var user = new User
         {
-            Id = Guid.NewGuid(), IdentitySubject = "target-subject", Status = UserStatus.Active
+            Id = Guid.NewGuid(), IdentitySubject = "target-subject", Status = UserStatus.Active,
+            AdditionalData = new AdditionalDataObject
+            {
+                DisableOtp = Sha256Utils.ComputeHexHash(otp),
+                DisableOtpExpired = DateTimeOffset.UtcNow.AddMinutes(5),
+                DisableOtpRequestedById = currentUser.Id
+            }
         };
-        var otpKey = UserCacheKeys.GetDisableOtpKey(user.Id);
+        var wrongTimesKey = UserCacheKeys.GetDisableOtpWrongTimesKey(user.Id);
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(currentUser);
-        _userQueryService.Setup(service => service.IsSuperAdminAsync(user.Id, It.IsAny<CancellationToken>()))
+        _userQueryService.Setup(service => service.HasRolesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
                 It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _cacheService.Setup(cache => cache.GetAsync<UserActionOtpChallengeModel>(
-                otpKey.Key, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserActionOtpChallengeModel
-            {
-                OtpHash = Sha256Utils.ComputeHexHash(otp),
-                RequestedById = currentUser.Id
-            });
         _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(
                 currentUser.Id.ToString(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -298,11 +289,13 @@ public class UserCommandServiceTests
         });
 
         user.Status.Should().Be(UserStatus.Inactive);
+        user.AdditionalData.DisableOtp.Should().BeNull();
+        user.AdditionalData.DisableOtpExpired.Should().BeNull();
         result.Status.Should().Be(UserStatus.Inactive);
         result.UpdatedBy!.Id.Should().Be(currentUser.Id);
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(
             currentUser.Id.ToString(), It.IsAny<CancellationToken>()), Times.Once);
-        _cacheService.Verify(cache => cache.RemoveAsync(otpKey.Key, It.IsAny<CancellationToken>()), Times.Once);
+        _cacheService.Verify(cache => cache.RemoveAsync(It.Is<CacheKeyObject>(key => key.Key == wrongTimesKey.Key), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -312,7 +305,16 @@ public class UserCommandServiceTests
         const string wrongOtp = "WrongCode1";
         var userId = Guid.NewGuid();
         var currentUser = CurrentUser();
-        var otpKey = UserCacheKeys.GetDisableOtpKey(userId);
+        var user = new User
+        {
+            Id = userId,
+            AdditionalData = new AdditionalDataObject
+            {
+                DisableOtp = Sha256Utils.ComputeHexHash(otp),
+                DisableOtpExpired = DateTimeOffset.UtcNow.AddMinutes(5),
+                DisableOtpRequestedById = currentUser.Id
+            }
+        };
         var wrongTimesKey = UserCacheKeys.GetDisableOtpWrongTimesKey(userId);
         var lockKey = UserCacheKeys.GetDisableOtpLockKey(userId);
         var wrongTimes = 0;
@@ -320,26 +322,23 @@ public class UserCommandServiceTests
         TimeSpan? lockExpiration = null;
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(currentUser);
-        _cacheService.Setup(cache => cache.GetAsync<bool>(lockKey.Key, It.IsAny<CancellationToken>()))
+        _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
+                It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _cacheService.Setup(cache => cache.GetAsync<bool>(It.Is<CacheKeyObject>(key => key.Key == lockKey.Key), It.IsAny<CancellationToken>()))
             .Returns(() => Task.FromResult(isLocked));
-        _cacheService.Setup(cache => cache.GetAsync<UserActionOtpChallengeModel>(otpKey.Key, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserActionOtpChallengeModel
-            {
-                OtpHash = Sha256Utils.ComputeHexHash(otp),
-                RequestedById = currentUser.Id
-            });
-        _cacheService.Setup(cache => cache.GetAsync<int>(wrongTimesKey.Key, It.IsAny<CancellationToken>()))
+        _cacheService.Setup(cache => cache.GetAsync<int>(It.Is<CacheKeyObject>(key => key.Key == wrongTimesKey.Key), It.IsAny<CancellationToken>()))
             .Returns(() => Task.FromResult(wrongTimes));
         _cacheService.Setup(cache => cache.SetAsync(
-                wrongTimesKey.Key, It.IsAny<int>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<string, int, TimeSpan?, CancellationToken>((_, count, _, _) => wrongTimes = count)
+                It.Is<CacheKeyObject>(key => key.Key == wrongTimesKey.Key), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<CacheKeyObject, int, CancellationToken>((_, count, _) => wrongTimes = count)
             .Returns(Task.CompletedTask);
         _cacheService.Setup(cache => cache.SetAsync(
-                lockKey.Key, true, It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<string, bool, TimeSpan?, CancellationToken>((_, _, expiration, _) =>
+                It.Is<CacheKeyObject>(key => key.Key == lockKey.Key), true, It.IsAny<CancellationToken>()))
+            .Callback<CacheKeyObject, bool, CancellationToken>((key, _, _) =>
             {
                 isLocked = true;
-                lockExpiration = expiration;
+                lockExpiration = key.Expiration;
             })
             .Returns(Task.CompletedTask);
         var service = CreateService();
@@ -364,6 +363,7 @@ public class UserCommandServiceTests
         exception.Message.Should().Be("You do not have permission to disable user.");
         wrongTimes.Should().Be(6);
         isLocked.Should().BeTrue();
+        user.AdditionalData.DisableOtp.Should().BeNull();
         lockExpiration!.Value.TotalMinutes.Should().BeInRange(61, 90);
 
         Func<Task> lockedAttempt = () => service.ConfirmDisableUserAsync(new DisableUserConfirmationRequestModel
@@ -376,21 +376,20 @@ public class UserCommandServiceTests
     }
 
     [Fact]
-    public async Task ChangeRoleAsync_ShouldBindRequestedRoleToCachedOtp_WhenRequestSucceeds()
+    public async Task ChangeRoleAsync_ShouldSaveOtpAndRequestedRoleToUser_WhenRequestSucceeds()
     {
         var currentUser = CurrentUser();
         var user = new User { Id = Guid.NewGuid(), Username = "alice", DisplayName = "Alice" };
         var currentAssignment = new UserRole { UserId = user.Id, RoleId = Guid.NewGuid() };
         var currentRole = new Role { Id = currentAssignment.RoleId, Code = RC.Employee, DisplayName = "Employee" };
         var newRole = new Role { Id = Guid.NewGuid(), Code = RC.Admin, DisplayName = "Admin" };
-        UserActionOtpChallengeModel? savedChallenge = null;
         OutboxEvent<SendNotificationEventModel>? publishedEvent = null;
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(currentUser);
-        _userQueryService.Setup(service => service.IsSuperAdminAsync(user.Id, It.IsAny<CancellationToken>()))
+        _userQueryService.Setup(service => service.HasRolesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
-                It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), false, It.IsAny<CancellationToken>()))
+                It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         _userRoleRepository.Setup(repository => repository.FindFirstByConditionAsync(
                 It.IsAny<Func<IQueryable<UserRole>, IQueryable<UserRole>>>(), false, It.IsAny<CancellationToken>()))
@@ -399,12 +398,9 @@ public class UserCommandServiceTests
                 It.IsAny<Func<IQueryable<Role>, IQueryable<Role>>>(), false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(currentRole)
             .ReturnsAsync(newRole);
-        _cacheService.Setup(cache => cache.SetAsync(
-                UserCacheKeys.GetChangeRoleOtpKey(user.Id).Key,
-                It.IsAny<UserActionOtpChallengeModel>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<string, UserActionOtpChallengeModel, TimeSpan?, CancellationToken>(
-                (_, challenge, _, _) => savedChallenge = challenge)
-            .Returns(Task.CompletedTask);
+        _unitOfWork.Setup(unitOfWork => unitOfWork.SaveChangesAsync(
+                currentUser.Id.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
         _messagingPublisher.Setup(publisher => publisher.HandleAsync(
                 It.IsAny<OutboxEvent<SendNotificationEventModel>>(), It.IsAny<CancellationToken>()))
             .Callback<OutboxEvent<SendNotificationEventModel>, CancellationToken>((message, _) => publishedEvent = message)
@@ -417,14 +413,15 @@ public class UserCommandServiceTests
         });
 
         result.RoleCode.Should().Be(RC.Admin);
-        savedChallenge.Should().NotBeNull();
-        savedChallenge!.RoleCode.Should().Be(RC.Admin);
-        savedChallenge.RequestedById.Should().Be(currentUser.Id);
+        user.AdditionalData.ChangeRoleOtp.Should().NotBeNull();
+        user.AdditionalData.ChangeRoleOtpExpired.Should().BeAfter(DateTimeOffset.UtcNow);
+        user.AdditionalData.ChangeRoleOtpRequestedById.Should().Be(currentUser.Id);
+        user.AdditionalData.ChangeRoleOtpRoleCode.Should().Be(RC.Admin);
         var email = publishedEvent!.Data.Email!;
         email.TemplateKey.Should().Be("ChangeRole");
         var emailData = email.Data!.RootElement;
         emailData.GetProperty("newRole").GetString().Should().Be("Admin");
-        savedChallenge!.OtpHash.Should().Be(Sha256Utils.ComputeHexHash(
+        user.AdditionalData.ChangeRoleOtp.Should().Be(Sha256Utils.ComputeHexHash(
             emailData.GetProperty("otpCode").GetString()!));
     }
 
@@ -433,7 +430,17 @@ public class UserCommandServiceTests
     {
         const string otp = "Abc1234567";
         var currentUser = CurrentUser();
-        var user = new User { Id = Guid.NewGuid(), IdentitySubject = "target-subject" };
+        var user = new User
+        {
+            Id = Guid.NewGuid(), IdentitySubject = "target-subject",
+            AdditionalData = new AdditionalDataObject
+            {
+                ChangeRoleOtp = Sha256Utils.ComputeHexHash(otp),
+                ChangeRoleOtpExpired = DateTimeOffset.UtcNow.AddMinutes(5),
+                ChangeRoleOtpRequestedById = currentUser.Id,
+                ChangeRoleOtpRoleCode = RC.Admin
+            }
+        };
         var currentAssignment = new UserRole
         {
             Id = Guid.NewGuid(), UserId = user.Id, RoleId = Guid.NewGuid(), EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-10)
@@ -445,18 +452,11 @@ public class UserCommandServiceTests
         };
         var currentRole = new Role { Id = currentAssignment.RoleId, Code = RC.Employee };
         var requestedRole = new Role { Id = oldRequestedAssignment.RoleId, Code = RC.Admin };
-        var otpKey = UserCacheKeys.GetChangeRoleOtpKey(user.Id);
+        var wrongTimesKey = UserCacheKeys.GetChangeRoleOtpWrongTimesKey(user.Id);
         _userQueryService.Setup(service => service.GetCurrentUserAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(currentUser);
-        _userQueryService.Setup(service => service.IsSuperAdminAsync(user.Id, It.IsAny<CancellationToken>()))
+        _userQueryService.Setup(service => service.HasRolesAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
-        _cacheService.Setup(cache => cache.GetAsync<UserActionOtpChallengeModel>(otpKey.Key, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserActionOtpChallengeModel
-            {
-                OtpHash = Sha256Utils.ComputeHexHash(otp),
-                RequestedById = currentUser.Id,
-                RoleCode = RC.Admin
-            });
         _userRepository.Setup(repository => repository.FindFirstByConditionAsync(
                 It.IsAny<Func<IQueryable<User>, IQueryable<User>>>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
@@ -482,9 +482,13 @@ public class UserCommandServiceTests
         oldRequestedAssignment.EffectiveFrom.Should().BeAfter(currentAssignment.EffectiveFrom);
         oldRequestedAssignment.EffectiveTo.Should().BeNull();
         result.RoleCode.Should().Be(RC.Admin);
+        user.AdditionalData.ChangeRoleOtp.Should().BeNull();
+        user.AdditionalData.ChangeRoleOtpExpired.Should().BeNull();
+        user.AdditionalData.ChangeRoleOtpRoleCode.Should().BeNull();
         _userRoleRepository.Verify(repository => repository.Add(It.IsAny<UserRole>()), Times.Never);
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(
             currentUser.Id.ToString(), It.IsAny<CancellationToken>()), Times.Once);
+        _cacheService.Verify(cache => cache.RemoveAsync(It.Is<CacheKeyObject>(key => key.Key == wrongTimesKey.Key), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -506,7 +510,7 @@ public class UserCommandServiceTests
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesAsync(
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _cacheService.Verify(cache => cache.RemoveAsync(
-            UserCacheKeys.GetCurrentUserKey(model.IdentitySubject).Key, It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<CacheKeyObject>(key => key.Key == UserCacheKeys.GetCurrentUserKey(model.IdentitySubject).Key), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -521,7 +525,7 @@ public class UserCommandServiceTests
         await act.Should().ThrowAsync<NotFoundException>();
 
         _unitOfWork.Verify(unitOfWork => unitOfWork.SaveChangesWithoutAuditAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _cacheService.Verify(cache => cache.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _cacheService.Verify(cache => cache.RemoveAsync(It.IsAny<CacheKeyObject>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static GetCurrentUserResponseModel CurrentUser() => new()

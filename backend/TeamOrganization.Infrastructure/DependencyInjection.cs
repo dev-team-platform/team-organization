@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Amazon.Runtime;
+using Amazon.S3;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -22,7 +24,12 @@ using TeamOrganization.Application.Models.Messaging.Publishing;
 using TeamOrganization.Infrastructure.Services.RabbitMq.Publishers;
 using TeamOrganization.Infrastructure.Services.RabbitMq.Consumers;
 using TeamOrganization.Application.Interfaces.Services.IdentityProviders;
+using TeamOrganization.Application.Interfaces.Services.ObjectStorages;
+using TeamOrganization.Infrastructure.Services.ObjectStorages;
 using TeamOrganization.Infrastructure.Services.IdentityProviders;
+using TeamOrganization.Application.Interfaces.Services.Exports;
+using TeamOrganization.Application.Models.Users;
+using TeamOrganization.Infrastructure.Services.ExportJobs;
 
 namespace TeamOrganization.Infrastructure;
 
@@ -41,21 +48,32 @@ public static class DependencyInjection
         services
             .AddOptions<RabbitMqOptions>()
             .BindConfiguration(RabbitMqOptions.SectionName)
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Host), "RabbitMq Host is required.")
-            .Validate(options => options.Port is > 0 and <= 65535, "RabbitMq Port must be between 1 and 65535.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Username), "RabbitMq Username is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Password), "RabbitMq Password is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.VirtualHost), "RabbitMq VirtualHost is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Host), "RabbitMq:Host is required.")
+            .Validate(options => options.Port is > 0 and <= 65535, "RabbitMq:Port must be between 1 and 65535.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Username), "RabbitMq:Username is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Password), "RabbitMq:Password is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.VirtualHost), "RabbitMq:VirtualHost is required.")
             .ValidateOnStart();
 
         services
             .AddOptions<AuditLogOptions>()
             .BindConfiguration(AuditLogOptions.SectionName)
-            .Validate(options => options.RetryCount >= 0, "AuditLog RetryCount must be greater than or equal to 0.")
-            .Validate(options => options.RetryDelayInMsSeconds != null && options.RetryDelayInMsSeconds.Count == options.RetryCount, "AuditLog RetryDelayInMsSeconds must have the same number of elements as RetryCount.")
-            .Validate(options => options.JitterFromMsSeconds >= 0, "AuditLog JitterFromMsSeconds must be greater than or equal to 0.")
-            .Validate(options => options.JitterToMsSeconds >= 0, "AuditLog JitterToMsSeconds must be greater than or equal to 0.")
-            .Validate(options => options.JitterFromMsSeconds <= options.JitterToMsSeconds, "AuditLog JitterFromMsSeconds must be less than or equal to JitterToMsSeconds.")
+            .Validate(options => options.RetryCount >= 0, "AuditLog:RetryCount must be greater than or equal to 0.")
+            .Validate(options => options.RetryDelayInMsSeconds != null && options.RetryDelayInMsSeconds.Count == options.RetryCount, "AuditLog:RetryDelayInMsSeconds must have the same number of elements as RetryCount.")
+            .Validate(options => options.JitterFromMsSeconds >= 0, "AuditLog:JitterFromMsSeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterToMsSeconds >= 0, "AuditLog:JitterToMsSeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterFromMsSeconds <= options.JitterToMsSeconds, "AuditLog:JitterFromMsSeconds must be less than or equal to JitterToMsSeconds.")
+            .ValidateOnStart();
+
+        services
+            .AddOptions<Options.ExportOptions>()
+            .BindConfiguration(Options.ExportOptions.SectionName)
+            .Validate(options => options.MaxQueueItems > 0, "Export:MaxQueueItems must be greater than 0.")
+            .Validate(options => options.RetryCount >= 0, "Export:RetryCount must be greater than or equal to 0.")
+            .Validate(options => options.RetryDelayInMsSeconds != null && options.RetryDelayInMsSeconds.Count == options.RetryCount, "Export:RetryDelayInMsSeconds must have the same number of elements as RetryCount.")
+            .Validate(options => options.JitterFromMsSeconds >= 0, "Export:JitterFromMsSeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterToMsSeconds >= 0, "Export:JitterToMsSeconds must be greater than or equal to 0.")
+            .Validate(options => options.JitterFromMsSeconds <= options.JitterToMsSeconds, "Export:JitterFromMsSeconds must be less than or equal to JitterToMsSeconds.")
             .ValidateOnStart();
 
         services
@@ -87,6 +105,18 @@ public static class DependencyInjection
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.DefaultPassword),
                 "UserManagement:DefaultPassword is required.")
+            .ValidateOnStart();
+
+        services
+            .AddOptions<ObjectStorageOptions>()
+            .BindConfiguration(ObjectStorageOptions.SectionName)
+            .Validate(options => Uri.TryCreate(options.Endpoint, UriKind.Absolute, out var endpoint)
+                && (endpoint.Scheme == Uri.UriSchemeHttp || endpoint.Scheme == Uri.UriSchemeHttps),
+                "ObjectStorage:Endpoint must be an absolute HTTP or HTTPS URL.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.BucketName), "ObjectStorage:BucketName is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Region), "ObjectStorage:Region is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.AccessKey), "ObjectStorage:AccessKey is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.SecretKey), "ObjectStorage:SecretKey is required.")
             .ValidateOnStart();
 
         return services;
@@ -128,9 +158,9 @@ public static class DependencyInjection
         });
         services.AddSingleton<RabbitMqConnection>();
         services.AddSingleton<RabbitMqTopologyInitializer>();
-        services.AddSingleton<RabbitMqPublisherHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<RabbitMqPublisherHostedService>());
-        services.AddHostedService<RabbitMqConsumerHostedService>();
+        services.AddSingleton<RabbitMqPublisherBackgroundService>();
+        services.AddHostedService(sp => sp.GetRequiredService<RabbitMqPublisherBackgroundService>());
+        services.AddHostedService<RabbitMqConsumerBackgroundService>();
 
         // Messaging Publishers  
         services.AddSingleton<
@@ -139,6 +169,12 @@ public static class DependencyInjection
 
         // Messaging Consumers    
         services.AddKeyedScoped<IMessagingConsumer, UserLoggedInConsumer>("UserLoggedIn");
+
+        // Export
+        services.AddSingleton<IExportQueueService, ExportQueueService>();
+        services.AddSingleton<IExportNotificationService, ExportNotificationService>();
+        services.AddScoped<IGenerateReportsService<GetAllUsersResponseModel>, GenerateUserListViewReportService>();
+        services.AddHostedService<ExportBackgroundService>();
 
         // Audit Log
         services.AddSingleton<IAuditLogBackgroundQueue, AuditLogBackgroundQueue>();
@@ -167,11 +203,27 @@ public static class DependencyInjection
         // Identity Providers
         services.AddSingleton<IIdentityProviderService, KeycloakService>();
 
+        // Object storage
+        services.AddSingleton<IAmazonS3>(sp =>
+        {
+            var storage = sp.GetRequiredService<IOptions<ObjectStorageOptions>>().Value;
+            var credentials = new BasicAWSCredentials(storage.AccessKey, storage.SecretKey);
+            var config = new AmazonS3Config
+            {
+                ServiceURL = storage.Endpoint,
+                AuthenticationRegion = storage.Region,
+                ForcePathStyle = storage.ForcePathStyle
+            };
+            return new AmazonS3Client(credentials, config);
+        });
+        services.AddSingleton<IObjectStorageService, RustFsObjectStorageService>();
+
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IFileStorageRepository, FileStorageRepository>();
 
         return services;
     }

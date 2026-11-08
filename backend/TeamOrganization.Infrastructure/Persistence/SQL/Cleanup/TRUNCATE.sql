@@ -1,3 +1,4 @@
+TRUNCATE TABLE public.file_storage;
 TRUNCATE TABLE public.audit_logs;
 TRUNCATE TABLE public.role_permissions;
 TRUNCATE TABLE public.permissions;

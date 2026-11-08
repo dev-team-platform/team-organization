@@ -11,6 +11,7 @@ public abstract class FilterQuery<TModel> : PaginationQuery where TModel : class
     public FilterGroup? FilterGroup { get; init; }
     public List<FilterCriterion> FilterCriteria { get; init; } = [];
     public List<SortField> SortFields { get; init; } = [];
+    public TimeZoneInfo TimeZoneId { get; set; } = null!;
 
     public abstract FilterQueryMap<TModel> GetFilterQueryMap();
 
