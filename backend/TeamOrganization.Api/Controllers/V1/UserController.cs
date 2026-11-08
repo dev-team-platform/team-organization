@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
-using TeamOrganization.Api.Constants;
 using TeamOrganization.Api.Attributes;
 using TeamOrganization.Api.Dtos.Common;
 using TeamOrganization.Api.Dtos.V1.Users;
@@ -20,7 +18,6 @@ namespace TeamOrganization.Api.Controllers.V1;
 [ApiVersion("1.0")]
 [ApiController]
 [Authorize]
-[EnableRateLimiting(RateLimiterPolicies.Default)]
 public class UserController : ControllerBase
 {
     private readonly Serilog.ILogger _logger;
@@ -44,7 +41,7 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("me")]
-    [Permissions(PermissionCodes.UserSelf.Read)]
+    [Permissions(PC.UserSelf.Read)]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(GetCurrentUserResponse))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
     [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
@@ -60,7 +57,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("all")]
-    [Permissions(PermissionCodes.User.Read)]
+    [Permissions(PC.User.Read)]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(GetAllUsersResponse))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
     [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
@@ -76,8 +73,110 @@ public class UserController : ControllerBase
         return Ok(dtoResponse);
     }
 
+    [HttpPut("{userId:guid}")]
+    [Permissions(PC.User.Update)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(UpdateUserResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> UpdateUserAsync(
+        Guid userId,
+        [FromBody] UpdateUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = UpdateUserRequest.ToModel(request);
+        model.UserId = userId;
+
+        var result = await _userCommandService.UpdateUserAsync(model, cancellationToken);
+        var dto = UpdateUserResponse.FromModel(result);
+        return Ok(dto);
+    }
+
+    [HttpPatch("disable/{userId:guid}")]
+    [Permissions(PC.User.Update)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(DisableUserConfirmationResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> ConfirmDisableUserAsync(
+        Guid userId,
+        [FromBody] DisableUserConfirmationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = DisableUserConfirmationRequest.ToModel(request, userId);
+        var result = await _userCommandService.ConfirmDisableUserAsync(model, cancellationToken);
+        var dto = DisableUserConfirmationResponse.FromModel(result);
+        return Ok(dto);
+    }
+
+    [HttpPost("disable/{userId:guid}")]
+    [Permissions(PC.User.Update)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(DisableUserResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> DisableUserAsync(
+        Guid userId,
+        [FromBody] DisableUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = DisableUserRequest.ToModel(request, userId);
+        var result = await _userCommandService.DisableUserAsync(model, cancellationToken);
+        var dto = DisableUserResponse.FromModel(result);
+        return Ok(dto);
+    }
+
+    [HttpPatch("change-role/{userId:guid}")]
+    [Permissions(PC.User.Update)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ChangeRoleConfirmationResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> ConfirmChangeRoleAsync(
+        Guid userId,
+        [FromBody] ChangeRoleConfirmationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = ChangeRoleConfirmationRequest.ToModel(request, userId);
+        var result = await _userCommandService.ConfirmChangeRoleAsync(model, cancellationToken);
+        var dto = ChangeRoleConfirmationResponse.FromModel(result);
+        return Ok(dto);
+    }
+
+    [HttpPost("change-role/{userId:guid}")]
+    [Permissions(PC.User.Update)]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ChangeRoleResponse))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status409Conflict, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity, Type = typeof(ErrorResponse))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ErrorResponse))]
+    public async Task<IActionResult> ChangeRoleAsync(
+        Guid userId,
+        [FromBody] ChangeRoleRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var model = ChangeRoleRequest.ToModel(request, userId);
+        var result = await _userCommandService.ChangeRoleAsync(model, cancellationToken);
+        var dto = ChangeRoleResponse.FromModel(result);
+        return Ok(dto);
+    }
+
     [HttpPost("new-user")]
-    [Permissions(PermissionCodes.User.Create)]
+    [Permissions(PC.User.Create)]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateNewUserResponse))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
     [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
@@ -91,12 +190,12 @@ public class UserController : ControllerBase
     {
         return await CreateNewUserInternalAsync(
             request,
-            [RoleCodes.Employee],
+            [RC.Employee],
             cancellationToken);
     }
 
     [HttpPost("new-admin-user")]
-    [Permissions(PermissionCodes.Admin.Create)]
+    [Permissions(PC.Admin.Create)]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateNewUserResponse))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized, Type = typeof(ErrorResponse))]
     [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ErrorResponse))]
@@ -110,7 +209,7 @@ public class UserController : ControllerBase
     {
         return await CreateNewUserInternalAsync(
             request,
-            [RoleCodes.Admin],
+            [RC.Admin],
             cancellationToken);
     }
 

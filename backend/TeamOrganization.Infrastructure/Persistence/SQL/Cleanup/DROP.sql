@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS public.file_storage CASCADE;
 DROP TABLE IF EXISTS public.audit_logs CASCADE;
 DROP TABLE IF EXISTS public.role_permissions CASCADE;
 DROP TABLE IF EXISTS public.permissions CASCADE;

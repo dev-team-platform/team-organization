@@ -19,20 +19,26 @@ public sealed class PermissionsAuthorizationFilter : IAsyncAuthorizationFilter
 {
     private readonly IUserQueryService _userQueryService;
     private readonly IReadOnlyCollection<string> _permissionCodes;
+    private readonly bool _requiredAll;
 
     public PermissionsAuthorizationFilter(
         IUserQueryService userQueryService,
-        string[] permissionCodes)
+        string[] permissionCodes,
+        bool requiredAll = false)
     {
         _userQueryService = userQueryService;
         _permissionCodes = permissionCodes;
+        _requiredAll = requiredAll;
     }
 
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
-        var user = await _userQueryService.GetCurrentUserAsync(context.HttpContext.RequestAborted);
+        var hasPermission = await _userQueryService.HasPermissionsAsync(
+            [.. _permissionCodes],
+            _requiredAll,
+            context.HttpContext.RequestAborted);
 
-        if (!_permissionCodes.Any(requiredCode => user.PermissionCodes.Contains(requiredCode, StringComparer.Ordinal)))
+        if (!hasPermission)
         {
             throw new ForbiddenException("You have not permission to perform this action");
         }

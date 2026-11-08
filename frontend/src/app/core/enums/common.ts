@@ -12,6 +12,7 @@ export enum FilterOperator {
 
 export enum TemporalPartType {
   None = 'None',
+  DateOnly = 'DateOnly',
   Date = 'Date',
   Month = 'Month',
   Year = 'Year',

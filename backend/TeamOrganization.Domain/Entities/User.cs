@@ -16,4 +16,16 @@ public class User : EntityBase
     public UserGender Gender { get; set; } = UserGender.Male;
     public DateOnly? BirthDate { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
+    public AdditionalDataObject AdditionalData { get; set; } = new();
+}
+
+public class AdditionalDataObject
+{
+    public string? DisableOtp { get; set; }
+    public DateTimeOffset? DisableOtpExpired { get; set; }
+    public Guid? DisableOtpRequestedById { get; set; }
+    public string? ChangeRoleOtp { get; set; }
+    public DateTimeOffset? ChangeRoleOtpExpired { get; set; }
+    public Guid? ChangeRoleOtpRequestedById { get; set; }
+    public string? ChangeRoleOtpRoleCode { get; set; }
 }

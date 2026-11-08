@@ -19,23 +19,27 @@
           class="to-users-management__action-button"
           color="blue"
           variant="filled"
-          height="36px"
+          height="32px"
           tooltipTitle="Create a new user"
           (onClick)="openNewUserDialog()"
         >
-          <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
-          <span>New User</span>
+          <div class="to-users-management__action-button__content">
+            <span class="tp-icon material-symbols-outlined" aria-hidden="true">add</span>
+            <span style="margin-left: -3px">New User</span>
+          </div>
         </tp-button>
 
         <tp-button
           class="to-users-management__action-button"
           color="blue"
           variant="filled"
-          height="36px"
-          tooltipTitle="Export users to Excel (coming soon)"
+          height="32px"
+          tooltipTitle="Export users to Excel"
+          [disabled]="exporting()"
+          (onClick)="exportUsers()"
         >
           <span class="tp-icon material-symbols-outlined" aria-hidden="true">download</span>
-          <span>Export</span>
+          <span style="margin-left: -3px">Export</span>
         </tp-button>
       </div>
     </header>
@@ -56,8 +60,9 @@
           hoverShape="rect"
           contentAlignment="start"
           color="black"
-          (onClick)="openEditUserDialog(user)"
           width="100%"
+          [disabled]="isDisabledAction(user)"
+          (onClick)="openEditUserDialog(user)"
         >
           <span class="tp-icon material-symbols-outlined" aria-hidden="true">edit</span>
           <span>Edit</span>
@@ -68,10 +73,38 @@
           contentAlignment="start"
           color="black"
           width="100%"
+          [disabled]="isDisabledAction(user)"
+          (onClick)="openChangeRoleDialog(user)"
         >
-          <span class="tp-icon material-symbols-outlined" aria-hidden="true">block</span>
-          <span>Disable</span>
+          <span class="tp-icon material-symbols-outlined" aria-hidden="true">swap_vert</span>
+          <span>Change Role</span>
         </tp-text-button>
+        @if (user.status === userStatuses.Inactive) {
+          <tp-text-button
+            pressEffectShape="rect"
+            hoverShape="rect"
+            contentAlignment="start"
+            color="black"
+            width="100%"
+            [disabled]="isDisabledAction(user)"
+          >
+            <span class="tp-icon material-symbols-outlined" aria-hidden="true">check_circle</span>
+            <span>Enable</span>
+          </tp-text-button>
+        } @else {
+          <tp-text-button
+            pressEffectShape="rect"
+            hoverShape="rect"
+            contentAlignment="start"
+            color="black"
+            width="100%"
+            [disabled]="isDisabledAction(user)"
+            (onClick)="openDisableUserDialog(user)"
+          >
+            <span class="tp-icon material-symbols-outlined" aria-hidden="true">block</span>
+            <span>Disable</span>
+          </tp-text-button>
+        }
       </ng-template>
 
       <ng-template tpTableFilter let-key="key">
@@ -119,12 +152,21 @@
             ></tp-input-autocomplete-multiselect>
           }
           @case ('birthDate') {
-            <tp-input-date-picker
+            <tp-input-filter
               [placeholder]="columnTitle(key)"
-              dateFormat="dd-MMM-yyyy"
-              [value]="birthDateFilter()"
-              (valueChange)="onBirthDateChange($event)"
-            ></tp-input-date-picker>
+              [value]="birthDateFilterDisplay()"
+              height="32px"
+              menuWidth="360px"
+              [(open)]="birthDateFilterOpen"
+              (onOpen)="onBirthDateFilterMenuOpen()"
+            >
+              <app-birth-date-filter-menu
+                [filter]="birthDateFilter()"
+                [resetKey]="birthDateFilterResetKey()"
+                (apply)="applyBirthDateFilter($event)"
+                (clear)="clearBirthDateFilter()"
+              ></app-birth-date-filter-menu>
+            </tp-input-filter>
           }
           @case ('lastLoginAt') {
             <tp-input-date-picker
@@ -182,5 +224,19 @@
       [user]="selectedUser()"
       (updated)="handleUserEdited($event)"
     ></app-edit-user-dialog>
+
+    <app-disable-user-dialog
+      [(open)]="disableUserDialogOpen"
+      [user]="selectedUser()"
+      (otpRequested)="reloadUsers()"
+      (completed)="reloadUsers()"
+    ></app-disable-user-dialog>
+
+    <app-change-role-dialog
+      [(open)]="changeRoleDialogOpen"
+      [user]="selectedUser()"
+      (otpRequested)="reloadUsers()"
+      (completed)="reloadUsers()"
+    ></app-change-role-dialog>
   </section>
 }

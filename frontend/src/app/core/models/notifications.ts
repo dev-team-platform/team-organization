@@ -2,11 +2,11 @@ import { FilterRequest, FilterResult } from './common';
 
 export interface NotificationItem {
   notificationId: string;
-  title: string;
-  content: string;
+  title: string | null;
+  content: string | null;
   data: unknown;
-  createdAt: string;
-  isRead?: boolean;
+  sentAt: string;
+  isRead: boolean;
   readAt?: string | null;
 }
 

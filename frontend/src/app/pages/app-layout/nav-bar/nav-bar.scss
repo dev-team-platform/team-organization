@@ -81,3 +81,7 @@
     margin-right: var(--tp-space-4);
   }
 }
+
+:host ::ng-deep .to-nav-bar__collapse-button .tp-icon {
+  --tp-icon-size: 24px;
+}

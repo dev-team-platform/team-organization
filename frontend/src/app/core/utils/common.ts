@@ -59,5 +59,16 @@ export function resolveErrorMessage(
     }
   }
 
+  if (error.status >= 400 && error.status < 500) {
+    const response = error.error as Partial<ErrorResponse> | null;
+    if (typeof response?.message === 'string' && response.message.trim()) {
+      return response.message.trim();
+    }
+  }
+
   return DEFAULT_ERROR_MESSAGE;
+}
+
+export function resolveTimeZoneId(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }

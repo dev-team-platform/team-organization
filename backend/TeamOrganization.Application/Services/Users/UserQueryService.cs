@@ -28,7 +28,7 @@ public class UserQueryService : IUserQueryService
     {
         var keyObj = UserCacheKeys.GetCurrentUserKey(_currentUserContext.IdentitySubject);
         var cachedUser = await _cacheService.GetAsync<GetCurrentUserResponseModel>(
-            keyObj.Key,
+            keyObj,
             cancellationToken);
 
         if (cachedUser is not null && !string.IsNullOrWhiteSpace(cachedUser.IdentitySubject))
@@ -38,14 +38,14 @@ public class UserQueryService : IUserQueryService
 
         if (cachedUser is not null)
         {
-            await _cacheService.RemoveAsync(keyObj.Key, cancellationToken);
+            await _cacheService.RemoveAsync(keyObj, cancellationToken);
         }
 
         var result = await _userRepository.FindCurrentUserByIdentitySubjectAsync(
             _currentUserContext.IdentitySubject,
             cancellationToken) ?? throw new NotFoundException($"User not found.");
 
-        await _cacheService.SetAsync(keyObj.Key, result, keyObj.Expiration, cancellationToken);
+        await _cacheService.SetAsync(keyObj, result, cancellationToken);
 
         return result;
     }
@@ -56,5 +56,19 @@ public class UserQueryService : IUserQueryService
     {
         var result = await _userRepository.FindAllUsersAsync(model, cancellationToken);
         return GetAllUsersResponseModel.FromFilterResult(result);
+    }
+
+    public async Task<bool> HasRolesAsync(IReadOnlyList<string> roleCodes, CancellationToken cancellationToken = default)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        return roleCodes.Contains(user.RoleCode);
+    }
+
+    public async Task<bool> HasPermissionsAsync(IReadOnlyList<string> permissionCodes, bool requiredAll = false, CancellationToken cancellationToken = default)
+    {
+        var user = await GetCurrentUserAsync(cancellationToken);
+        return requiredAll
+            ? permissionCodes.All(requiredCode => user.PermissionCodes.Contains(requiredCode, StringComparer.Ordinal))
+            : permissionCodes.Any(requiredCode => user.PermissionCodes.Contains(requiredCode, StringComparer.Ordinal));
     }
 }

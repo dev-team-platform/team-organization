@@ -15,6 +15,8 @@ public class GetAllUsersRequestModel : FilterQuery<GetAllUsersResponseModelItem>
             .Map("lastName", x => x.LastName)
             .Map("displayName", x => x.DisplayName)
             .Map("roleName", x => x.RoleName)
+            .Map("createdBy", x => x.CreatedBy == null ? (Guid?)null : x.CreatedBy.Id)
+            .Map("updatedBy", x => x.UpdatedBy == null ? (Guid?)null : x.UpdatedBy.Id)
             .Map("status", x => x.Status)
             .Map("gender", x => x.Gender)
             .Map("birthDate", x => x.BirthDate)

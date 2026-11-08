@@ -17,5 +17,6 @@ public class GetCurrentUserResponseModel
     public DateOnly? BirthDate { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public string RoleName { get; set; } = null!;
+    public string RoleCode { get; init; } = null!;
     public List<string> PermissionCodes { get; set; } = [];
 }

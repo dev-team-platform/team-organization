@@ -6,14 +6,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using TeamOrganization.Domain.Entities;
-using TeamOrganization.Domain.Enums;
 using TeamOrganization.Application.Interfaces.Services.Audit;
 using TeamOrganization.Domain.Enums.Common;
+using TeamOrganization.Domain.Utils;
 
 namespace TeamOrganization.Infrastructure.Persistence.Interceptors;
 
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {
+    internal const string AuditIgnoreAnnotation = "TeamOrganization:AuditIgnore";
+
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IAuditLogBackgroundQueue _auditLogBackgroundQueue;
     private readonly ConcurrentDictionary<Guid, IReadOnlyCollection<AuditLog>> _pendingAuditLogs = new();
@@ -169,7 +171,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         };
     }
 
-    private static string? SerializeValues(EntityEntry<EntityBase> entry, bool useOriginalValues)
+    internal static string? SerializeValues(EntityEntry<EntityBase> entry, bool useOriginalValues)
     {
         var values = entry.Properties
             .Where(property => property.Metadata.Name is not nameof(EntityBase.CreatedAt)
@@ -181,9 +183,52 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 || property.IsModified)
             .ToDictionary(
                 property => property.Metadata.Name,
-                property => useOriginalValues ? property.OriginalValue : property.CurrentValue);
+                property => FormatAuditValue(useOriginalValues ? property.OriginalValue : property.CurrentValue));
+
+        foreach (var complexProperty in entry.ComplexProperties)
+        {
+            var originalContent = SerializeComplexProperty(complexProperty, useOriginalValues: true);
+            var currentContent = SerializeComplexProperty(complexProperty, useOriginalValues: false);
+            if (entry.State != EntityState.Modified
+                || entry.Entity.IsDeleted
+                || !string.Equals(originalContent, currentContent, StringComparison.Ordinal))
+            {
+                values[complexProperty.Metadata.Name] = DeserializeJsonElement(
+                    useOriginalValues ? originalContent : currentContent);
+            }
+        }
 
         return values.Count == 0 ? null : JsonSerializer.Serialize(values);
+    }
+
+    private static string SerializeComplexProperty(
+        ComplexPropertyEntry complexProperty,
+        bool useOriginalValues)
+    {
+        var values = complexProperty.Properties
+            .Where(property => property.Metadata.FindAnnotation(AuditIgnoreAnnotation)?.Value is not true)
+            .ToDictionary(
+                property => property.Metadata.Name,
+                property => FormatAuditValue(useOriginalValues ? property.OriginalValue : property.CurrentValue));
+
+        foreach (var nestedComplexProperty in complexProperty.ComplexProperties)
+        {
+            values[nestedComplexProperty.Metadata.Name] = DeserializeJsonElement(
+                SerializeComplexProperty(nestedComplexProperty, useOriginalValues));
+        }
+
+        return JsonSerializer.Serialize(values);
+    }
+
+    private static object? FormatAuditValue(object? value)
+    {
+        return value is Enum enumValue ? EnumUtils.ToString(enumValue) : value;
+    }
+
+    private static JsonElement DeserializeJsonElement(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 
     private static string? GetHeader(HttpContext? httpContext, string name)

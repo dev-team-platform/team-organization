@@ -16,6 +16,7 @@ import {
   TpInput,
   TpInputAutocompleteMultiselect,
   TpInputDatePicker,
+  TpInputFilter,
   TpInputValue,
   TpSearchBar,
   TpSelectOption,
@@ -38,11 +39,20 @@ import { FilterOperator, TemporalPartType } from '../../../core/enums/common';
 import { RoleName } from '../../../core/enums/uam';
 import { UserGender, UserStatus } from '../../../core/enums/users';
 import { ChipMapping, FilterCriterionRequest } from '../../../core/models/common';
-import { GetUsersRequest, UserListItem } from '../../../core/models/users';
+import { GetUsersRequest } from '../../../core/models/users';
+import { AuthService } from '../../../core/services/auth-service';
 import { ClientCorrelationService } from '../../../core/services/client-correlation-service';
+import { ExportService } from '../../../core/services/export-service';
 import { ToastService } from '../../../core/services/toast-service';
 import { UserService } from '../../../core/services/user-service';
-import { isNotEmpty, resolveErrorMessage } from '../../../core/utils/common';
+import { isNotEmpty, resolveErrorMessage, resolveTimeZoneId } from '../../../core/utils/common';
+import { UserListItem } from './../../../core/models/users';
+import {
+  BirthDateFilterMenu,
+  type BirthDateFilterValue,
+} from './birth-date-filter-menu/birth-date-filter-menu';
+import { ChangeRoleDialog } from './change-role-dialog/change-role-dialog';
+import { DisableUserDialog } from './disable-user-dialog/disable-user-dialog';
 import { EditUserDialog } from './edit-user-dialog/edit-user-dialog';
 import { NewUserDialog } from './new-user-dialog/new-user-dialog';
 
@@ -57,6 +67,7 @@ type UserFilterField =
     TpInput,
     TpInputAutocompleteMultiselect,
     TpInputDatePicker,
+    TpInputFilter,
     TpSearchBar,
     TpTable,
     TpTableActionContent,
@@ -66,6 +77,9 @@ type UserFilterField =
     DatePipe,
     NewUserDialog,
     EditUserDialog,
+    DisableUserDialog,
+    ChangeRoleDialog,
+    BirthDateFilterMenu,
     MainSkeleton,
   ],
   templateUrl: './users-management.html',
@@ -74,6 +88,8 @@ type UserFilterField =
 })
 export class UsersManagement implements OnInit {
   private readonly userService = inject(UserService);
+  private readonly exportService = inject(ExportService);
+  private readonly authService = inject(AuthService);
   private readonly clientCorrelationService = inject(ClientCorrelationService);
   private readonly toastService = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
@@ -81,9 +97,10 @@ export class UsersManagement implements OnInit {
   private readonly userRequests = new Subject<GetUsersRequest>();
   private lastUsersRequest: GetUsersRequest | null = null;
 
+  protected readonly userStatuses = UserStatus;
+
   protected readonly actionColumn: TpTableActionColumnConfig = {
     enabled: true,
-    title: 'Action',
     menuWidth: '160px',
   };
 
@@ -100,12 +117,18 @@ export class UsersManagement implements OnInit {
   readonly roleOptionSearch = signal('');
   readonly genderOptionSearch = signal('');
   readonly lastLoginDateFilter = signal<Date | null>(null);
-  readonly birthDateFilter = signal<Date | null>(null);
+  readonly birthDateFilter = signal<BirthDateFilterValue | null>(null);
+  readonly birthDateFilterOpen = signal(false);
+  readonly birthDateFilterResetKey = signal(0);
+  readonly birthDateFilterDisplay = computed(() => this.birthDateFilter()?.displayValue ?? '');
   readonly loading = signal(true);
   readonly initialLoading = signal(true);
+  readonly exporting = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly newUserDialogOpen = signal(false);
   readonly editUserDialogOpen = signal(false);
+  readonly disableUserDialogOpen = signal(false);
+  readonly changeRoleDialogOpen = signal(false);
   readonly selectedUser = signal<UserListItem | null>(null);
   readonly statusOptions = [UserStatus.Active, UserStatus.Inactive, UserStatus.Pending];
   readonly genderOptions = [UserGender.Male, UserGender.Female, UserGender.Unknown];
@@ -121,14 +144,14 @@ export class UsersManagement implements OnInit {
   );
 
   readonly statusMapping: Record<UserStatus, ChipMapping> = {
-    [UserStatus.Active]: { color: 'green', displayValue: UserStatus.Active.toUpperCase() },
+    [UserStatus.Active]: { color: 'emerald', displayValue: UserStatus.Active.toUpperCase() },
     [UserStatus.Inactive]: { color: 'red', displayValue: UserStatus.Inactive.toUpperCase() },
     [UserStatus.Pending]: { color: 'amber', displayValue: UserStatus.Pending.toUpperCase() },
   };
 
   readonly genderMapping: Record<UserGender, ChipMapping> = {
     [UserGender.Male]: { color: 'blue', displayValue: UserGender.Male.toUpperCase() },
-    [UserGender.Female]: { color: 'yellow', displayValue: UserGender.Female.toUpperCase() },
+    [UserGender.Female]: { color: 'amber', displayValue: UserGender.Female.toUpperCase() },
     [UserGender.Unknown]: { color: 'gray', displayValue: UserGender.Unknown.toUpperCase() },
   };
 
@@ -163,17 +186,17 @@ export class UsersManagement implements OnInit {
   });
 
   private readonly columns: readonly TpTableColumn<UserListItem>[] = [
-    { key: 'employeeCode', title: 'Employee Code', sortable: true, width: '150px' },
-    { key: 'firstName', title: 'First Name', sortable: true, width: '150px' },
-    { key: 'lastName', title: 'Last Name', sortable: true, width: '150px' },
-    { key: 'displayName', title: 'Display Name', sortable: true, width: '150px' },
-    { key: 'username', title: 'Username', sortable: true, width: '150px' },
+    { key: 'employeeCode', title: 'Employee Code', sortable: true, width: '100px' },
+    { key: 'firstName', title: 'First Name', sortable: true, width: '100px' },
+    { key: 'lastName', title: 'Last Name', sortable: true, width: '100px' },
+    { key: 'displayName', title: 'Display Name', sortable: true, width: '100px' },
+    { key: 'username', title: 'Username', sortable: true, width: '100px' },
     { key: 'email', title: 'Email', sortable: true, width: '250px', maxCellContentLength: 255 },
-    { key: 'roleName', title: 'Role', sortable: true, width: '250px' },
-    { key: 'status', title: 'Status', sortable: true, width: '250px' },
-    { key: 'gender', title: 'Gender', sortable: true, width: '250px' },
-    { key: 'birthDate', title: 'Birth Date', sortable: true, width: '150px' },
-    { key: 'lastLoginAt', title: 'Last Login At', sortable: true, width: '150px' },
+    { key: 'roleName', title: 'Role', sortable: true, width: '200px' },
+    { key: 'status', title: 'Status', sortable: true, width: '200px' },
+    { key: 'gender', title: 'Gender', sortable: true, width: '200px' },
+    { key: 'birthDate', title: 'Birth Date', sortable: true, width: '300px' },
+    { key: 'lastLoginAt', title: 'Last Login At', sortable: true, width: '100px' },
   ];
 
   readonly tableData = computed<TpTableData<UserListItem>>(() => ({
@@ -182,12 +205,21 @@ export class UsersManagement implements OnInit {
     totalRows: this.totalUsers(),
   }));
 
+  isDisabledAction(user: unknown) {
+    const checkedUser = user as UserListItem;
+    return (
+      checkedUser.roleName === RoleName.SuperAdmin ||
+      this.authService.currentUser()?.id === checkedUser.id
+    );
+  }
+
   readonly tableState = computed(() => ({ loading: { enabled: this.loading() } }));
 
   readonly tableConfig = computed<TpTableConfig<UserListItem>>(() => ({
     columns: this.columns,
     maxCellContentLength: 64,
-    maxHeight: '450px',
+    maxHeight: '65vh',
+    rowHeight: '40px',
     filter: { enabled: true },
     sort: { enabled: true, value: this.activeSort() },
     pagination: {
@@ -299,9 +331,22 @@ export class UsersManagement implements OnInit {
     this.scheduleFilteredLoad();
   }
 
-  onBirthDateChange(value: Date | null): void {
-    this.birthDateFilter.set(value);
+  onBirthDateFilterMenuOpen(): void {
+    this.birthDateFilterResetKey.update((key) => key + 1);
+  }
+
+  applyBirthDateFilter(filter: BirthDateFilterValue): void {
+    this.birthDateFilter.set(filter);
+    this.birthDateFilterOpen.set(false);
     this.scheduleFilteredLoad();
+  }
+
+  clearBirthDateFilter(): void {
+    if (this.birthDateFilter() !== null) {
+      this.birthDateFilter.set(null);
+      this.scheduleFilteredLoad();
+    }
+    this.birthDateFilterOpen.set(false);
   }
 
   onPaginationChange(change: TpTablePageChange): void {
@@ -328,6 +373,16 @@ export class UsersManagement implements OnInit {
   openEditUserDialog(user: UserListItem): void {
     this.selectedUser.set(user);
     this.editUserDialogOpen.set(true);
+  }
+
+  openDisableUserDialog(user: UserListItem): void {
+    this.selectedUser.set(user);
+    this.disableUserDialogOpen.set(true);
+  }
+
+  openChangeRoleDialog(user: UserListItem): void {
+    this.selectedUser.set(user);
+    this.changeRoleDialogOpen.set(true);
   }
 
   handleUserEdited(updatedUser: UserListItem): void {
@@ -363,13 +418,51 @@ export class UsersManagement implements OnInit {
     );
   }
 
+  exportUsers(): void {
+    if (this.exporting()) return;
+    const request = this.buildUsersRequest();
+    this.exporting.set(true);
+    const actionId = this.clientCorrelationService.startAction();
+    this.exportService
+      .exportUsers(request)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.exporting.set(false);
+          if (this.clientCorrelationService.getClientActionId() === actionId)
+            this.clientCorrelationService.completeAction();
+        }),
+      )
+      .subscribe({
+        next: ({ fileName }) =>
+          this.toastService.enqueue({
+            type: 'success',
+            content: `Exporting ${fileName} is being prepared. Check notifications for the result.`,
+            width: '500px',
+          }),
+        error: (error: unknown) =>
+          this.toastService.enqueue({
+            type: 'error',
+            content: resolveErrorMessage(error),
+            width: '500px',
+          }),
+      });
+  }
+
   private loadUsers(): void {
+    const request = this.buildUsersRequest();
+    this.lastUsersRequest = request;
+    this.userRequests.next(request);
+  }
+
+  private buildUsersRequest(): GetUsersRequest {
     const filterCriteria = this.buildFilterCriteria();
     const sort = this.activeSort();
     const request: GetUsersRequest = {
       currentPage: this.currentPage(),
       itemsPerPage: this.pageSize(),
       searchGlobalText: this.globalSearch().trim() || undefined,
+      timeZoneId: resolveTimeZoneId(),
       filterCriteria,
       sortFields: [
         {
@@ -379,8 +472,7 @@ export class UsersManagement implements OnInit {
       ],
     };
 
-    this.lastUsersRequest = request;
-    this.userRequests.next(request);
+    return request;
   }
 
   private buildFilterCriteria(): FilterCriterionRequest[] {
@@ -435,13 +527,59 @@ export class UsersManagement implements OnInit {
       });
     }
 
-    const birthDate = this.birthDateFilter();
-    if (birthDate) {
-      criteria.push({
-        fieldName: 'birthDate',
-        operator: FilterOperator.Equals,
-        values: [this.formatDateOnly(birthDate)],
-      });
+    const birthDateFilter = this.birthDateFilter();
+    if (birthDateFilter?.mode === 'exact') {
+      const exactParts: Array<[number | null, TemporalPartType]> = [
+        [birthDateFilter.date, TemporalPartType.Date],
+        [birthDateFilter.month, TemporalPartType.Month],
+        [birthDateFilter.year, TemporalPartType.Year],
+      ];
+
+      for (const [value, temporalPartType] of exactParts) {
+        if (value === null) continue;
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.Equals,
+          values: [String(value)],
+          dateTimeFilterOptions: { offsetMinutes: 0, temporalPartType },
+        });
+      }
+    } else if (birthDateFilter?.mode === 'range') {
+      if (birthDateFilter.fromDate !== null) {
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.GreaterThanOrEquals,
+          values: [this.formatDateOnly(birthDateFilter.fromDate)],
+        });
+      }
+
+      if (birthDateFilter.toDate !== null) {
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.LessThanOrEquals,
+          values: [this.formatDateOnly(birthDateFilter.toDate)],
+        });
+      }
+    } else if (birthDateFilter?.mode === 'age') {
+      const today = this.todayDate();
+
+      if (birthDateFilter.fromAge !== null) {
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.LessThanOrEquals,
+          values: [this.formatDateOnly(this.shiftDateByYears(today, -birthDateFilter.fromAge))],
+        });
+      }
+
+      if (birthDateFilter.toAge !== null) {
+        const oldestBirthDate = this.shiftDateByYears(today, -(birthDateFilter.toAge + 1));
+        oldestBirthDate.setDate(oldestBirthDate.getDate() + 1);
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.GreaterThanOrEquals,
+          values: [this.formatDateOnly(oldestBirthDate)],
+        });
+      }
     }
 
     return criteria;
@@ -461,5 +599,17 @@ export class UsersManagement implements OnInit {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${date.getFullYear()}-${month}-${day}`;
+  }
+
+  private todayDate(): Date {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  private shiftDateByYears(date: Date, yearOffset: number): Date {
+    const year = date.getFullYear() + yearOffset;
+    const month = date.getMonth();
+    const day = Math.min(date.getDate(), new Date(year, month + 1, 0).getDate());
+    return new Date(year, month, day);
   }
 }

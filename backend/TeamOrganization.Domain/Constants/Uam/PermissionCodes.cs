@@ -1,6 +1,6 @@
 namespace TeamOrganization.Domain.Constants.Uam;
 
-public static class PermissionCodes
+public static class PC
 {
     public static class UserSelf
     {
@@ -13,6 +13,7 @@ public static class PermissionCodes
         public const string Read = "user.read";
         public const string Create = "user.create";
         public const string Update = "user.update";
+        public const string Export = "user.export";
     }
 
     public static class Admin

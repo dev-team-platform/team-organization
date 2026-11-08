@@ -1,18 +1,19 @@
+using TeamOrganization.Domain.Constants.CacheKeys;
+
 namespace TeamOrganization.Application.Interfaces.Services.Cache;
 
 public interface ICacheService
 {
     Task<T?> GetAsync<T>(
-        string key,
+        CacheKeyObject keyObj,
         CancellationToken cancellationToken = default);
 
     Task SetAsync<T>(
-        string key,
+        CacheKeyObject keyObj,
         T value,
-        TimeSpan? expiration = null,
         CancellationToken cancellationToken = default);
 
     Task RemoveAsync(
-        string key,
+        CacheKeyObject keyObj,
         CancellationToken cancellationToken = default);
 }

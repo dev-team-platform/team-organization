@@ -8,15 +8,16 @@ public class SendNotificationEventModel
     public string SourceApp { get; } = SourceApps.TeamOrganization;
     public required string EventType { get; init; }
     public required Guid CreatedById { get; init; }
-    public required DateTimeOffset CreatedAt { get; init; }
+    public Guid? UpdatedById { get; init; }
     public NotificationEventModel? Notification { get; init; }
     public EmailEventModel? Email { get; init; }
 }
 
 public class NotificationEventModel
 {
+    public Guid? NotificationId { get; init; }
     public required string Title { get; init; }
-    public required string Message { get; init; }
+    public required string Content { get; init; }
     public required IReadOnlyList<NotificationRecipientEventModel> Recipients { get; init; }
     public JsonDocument? Data { get; init; }
 }

@@ -60,3 +60,7 @@
     }
   }
 }
+
+:host ::ng-deep .to-not-found__home-button .tp-icon {
+  margin-top: -1px;
+}

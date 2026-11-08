@@ -3,7 +3,8 @@ namespace TeamOrganization.Domain.Enums.Common;
 public enum TemporalPartType
 {
     None = 1,
-    Date = 2,
-    Month = 3,
-    Year = 4,
+    DateOnly = 2,
+    Date = 3,
+    Month = 4,
+    Year = 5,
 }

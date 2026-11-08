@@ -38,6 +38,13 @@
 
   &__action-button {
     flex: 0 0 auto;
+
+    &__content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--tp-space-2);
+    }
   }
 
   &__table {
@@ -65,41 +72,9 @@
 }
 
 :host ::ng-deep .to-users-management__action-button .tp-icon {
-  --tp-icon-size: 20px;
+  --tp-icon-size: 18px;
 }
 
 :host ::ng-deep .to-users-management__column-filter .mat-mdc-form-field-subscript-wrapper {
   display: none;
-}
-
-@media (max-width: 900px) {
-  .to-users-management {
-    padding: var(--tp-space-4);
-
-    &__toolbar {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: var(--tp-space-4);
-    }
-
-    &__actions {
-      width: 100%;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-    }
-
-    &__search {
-      width: 100%;
-      min-width: 180px;
-      flex: 1 1 100%;
-    }
-  }
-}
-
-@media (max-width: 600px) {
-  .to-users-management {
-    &__action-button {
-      flex: 1 1 auto;
-    }
-  }
 }

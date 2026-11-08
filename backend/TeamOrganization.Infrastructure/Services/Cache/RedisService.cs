@@ -1,6 +1,7 @@
 using System.Text.Json;
 using StackExchange.Redis;
 using TeamOrganization.Application.Interfaces.Services.Cache;
+using TeamOrganization.Domain.Constants.CacheKeys;
 
 namespace TeamOrganization.Infrastructure.Services.Cache;
 
@@ -17,13 +18,13 @@ public class RedisService : ICacheService
     }
 
     public async Task<T?> GetAsync<T>(
-        string key,
+        CacheKeyObject keyObj,
         CancellationToken cancellationToken = default)
     {
-        ValidateKey(key);
+        ValidateKey(keyObj.Key);
 
         RedisValue cachedValue = await _database
-            .StringGetAsync(key)
+            .StringGetAsync(keyObj.Key)
             .WaitAsync(cancellationToken);
 
         if (cachedValue.IsNull)
@@ -37,41 +38,40 @@ public class RedisService : ICacheService
     }
 
     public async Task SetAsync<T>(
-        string key,
+        CacheKeyObject keyObj,
         T value,
-        TimeSpan? expiration = null,
         CancellationToken cancellationToken = default)
     {
-        ValidateKey(key);
+        ValidateKey(keyObj.Key);
         ArgumentNullException.ThrowIfNull(value);
 
         var serializedValue = JsonSerializer.Serialize(value, JsonOptions);
 
-        var redisExpiration = expiration.HasValue
-            ? new Expiration(expiration.Value)
+        var redisExpiration = keyObj.Expiration.HasValue
+            ? new Expiration(keyObj.Expiration.Value)
             : Expiration.Default;
 
         bool succeeded = await _database
             .StringSetAsync(
-                key,
+                keyObj.Key,
                 serializedValue,
                 redisExpiration)
             .WaitAsync(cancellationToken);
 
         if (!succeeded)
         {
-            throw new InvalidOperationException($"Failed to set Redis cache key '{key}'.");
+            throw new InvalidOperationException($"Failed to set Redis cache key '{keyObj.Key}'.");
         }
     }
 
     public async Task RemoveAsync(
-        string key,
+        CacheKeyObject keyObj,
         CancellationToken cancellationToken = default)
     {
-        ValidateKey(key);
+        ValidateKey(keyObj.Key);
 
         await _database
-            .KeyDeleteAsync(key)
+            .KeyDeleteAsync(keyObj.Key)
             .WaitAsync(cancellationToken);
     }
 
