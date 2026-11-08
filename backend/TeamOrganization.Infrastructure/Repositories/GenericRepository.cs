@@ -27,8 +27,9 @@ public abstract class GenericRepository<T> : IGenericRepository<T> where T : cla
     }
 
     public virtual async Task<T?> FindFirstByConditionAsync(
-       Func<IQueryable<T>, IQueryable<T>> condition,
-       bool trackChanges = false
+        Func<IQueryable<T>, IQueryable<T>> condition,
+        bool trackChanges = false,
+        CancellationToken cancellationToken = default
    )
     {
         IQueryable<T> query = _dbContext.Set<T>();
@@ -37,23 +38,25 @@ public abstract class GenericRepository<T> : IGenericRepository<T> where T : cla
             query = query.AsNoTracking();
 
         query = condition(query);
-        return await query.FirstOrDefaultAsync();
+        return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
-    public virtual async Task<IReadOnlyList<T>> FindAllAsync(bool trackChanges = false)
+    public virtual async Task<IReadOnlyList<T>> FindAllAsync(
+        bool trackChanges = false,
+        CancellationToken cancellationToken = default)
     {
         IQueryable<T> query = _dbContext.Set<T>();
 
         if (!trackChanges)
             query = query.AsNoTracking();
 
-        return await query.ToListAsync();
+        return await query.ToListAsync(cancellationToken);
     }
 
     public virtual async Task<IReadOnlyList<T>> FindAllByConditionAsync(
         Func<IQueryable<T>, IQueryable<T>> condition,
-        bool trackChanges = false
-    )
+        bool trackChanges = false,
+        CancellationToken cancellationToken = default)
     {
         IQueryable<T> query = _dbContext.Set<T>();
 
@@ -61,13 +64,12 @@ public abstract class GenericRepository<T> : IGenericRepository<T> where T : cla
             query = query.AsNoTracking();
 
         query = condition(query);
-        return await query.ToListAsync();
+        return await query.ToListAsync(cancellationToken);
     }
 
     public IQueryable<T> QueryByCondition(
         Func<IQueryable<T>, IQueryable<T>> condition,
-        bool trackChanges = false
-    )
+        bool trackChanges = false)
     {
         IQueryable<T> query = _dbContext.Set<T>();
 

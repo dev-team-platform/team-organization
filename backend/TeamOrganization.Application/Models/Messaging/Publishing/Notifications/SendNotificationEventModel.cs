@@ -1,0 +1,44 @@
+using System.Text.Json;
+using TeamOrganization.Domain.Constants.Notifications;
+
+namespace TeamOrganization.Application.Models.Messaging.Publishing.Notifications;
+
+public class SendNotificationEventModel
+{
+    public string SourceApp { get; } = SourceApps.TeamOrganization;
+    public required string EventType { get; init; }
+    public required Guid CreatedById { get; init; }
+    public Guid? UpdatedById { get; init; }
+    public NotificationEventModel? Notification { get; init; }
+    public EmailEventModel? Email { get; init; }
+}
+
+public class NotificationEventModel
+{
+    public Guid? NotificationId { get; init; }
+    public required string Title { get; init; }
+    public required string Content { get; init; }
+    public required IReadOnlyList<NotificationRecipientEventModel> Recipients { get; init; }
+    public JsonDocument? Data { get; init; }
+}
+
+public class NotificationRecipientEventModel
+{
+    public required Guid UserId { get; init; }
+    public required string IdentitySubject { get; init; }
+}
+
+public class EmailEventModel
+{
+    public string? FromEmail { get; init; }
+    public string? FromName { get; init; }
+    public required IReadOnlyList<EmailRecipientEventModel> Recipients { get; init; }
+    public required string TemplateKey { get; init; }
+    public JsonDocument? Data { get; init; }
+}
+
+public class EmailRecipientEventModel
+{
+    public required Guid UserId { get; init; }
+    public required string Email { get; init; }
+}

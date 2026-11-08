@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN gender VARCHAR(20) NOT NULL DEFAULT 'Male',
+    ADD COLUMN birth_date DATE NULL;
