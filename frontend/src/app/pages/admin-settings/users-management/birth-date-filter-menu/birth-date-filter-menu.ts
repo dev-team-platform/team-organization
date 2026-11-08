@@ -7,7 +7,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { TpButton, TpInput, type TpInputValue } from '@team-platform/ui';
+import { TpButton, TpInput, TpInputDatePicker, type TpInputValue } from '@team-platform/ui';
 
 export interface ExactBirthDateFilter {
   mode: 'exact';
@@ -24,11 +24,18 @@ export interface BirthDateAgeFilter {
   displayValue: string;
 }
 
-export type BirthDateFilterValue = ExactBirthDateFilter | BirthDateAgeFilter;
+export interface BirthDateRangeFilter {
+  mode: 'range';
+  fromDate: Date | null;
+  toDate: Date | null;
+  displayValue: string;
+}
+
+export type BirthDateFilterValue = ExactBirthDateFilter | BirthDateRangeFilter | BirthDateAgeFilter;
 
 @Component({
   selector: 'app-birth-date-filter-menu',
-  imports: [TpButton, TpInput],
+  imports: [TpButton, TpInput, TpInputDatePicker],
   templateUrl: './birth-date-filter-menu.html',
   styleUrl: './birth-date-filter-menu.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,16 +50,34 @@ export class BirthDateFilterMenu {
   protected readonly day = signal<number | null>(null);
   protected readonly month = signal<number | null>(null);
   protected readonly year = signal<number | null>(null);
+  protected readonly fromDate = signal<Date | null>(null);
+  protected readonly toDate = signal<Date | null>(null);
   protected readonly fromAge = signal<number | null>(null);
   protected readonly toAge = signal<number | null>(null);
 
   protected readonly exactHasValue = computed(
     () => this.day() !== null || this.month() !== null || this.year() !== null,
   );
+  protected readonly rangeHasValue = computed(
+    () => this.fromDate() !== null || this.toDate() !== null,
+  );
   protected readonly ageHasValue = computed(() => this.fromAge() !== null || this.toAge() !== null);
-  protected readonly hasAnyValue = computed(() => this.exactHasValue() || this.ageHasValue());
-  protected readonly exactDisabled = computed(() => this.ageHasValue());
-  protected readonly ageDisabled = computed(() => this.exactHasValue());
+  protected readonly hasAnyValue = computed(
+    () => this.exactHasValue() || this.rangeHasValue() || this.ageHasValue(),
+  );
+  protected readonly exactDisabled = computed(() => this.rangeHasValue() || this.ageHasValue());
+  protected readonly rangeDisabled = computed(() => this.exactHasValue() || this.ageHasValue());
+  protected readonly ageDisabled = computed(() => this.exactHasValue() || this.rangeHasValue());
+  protected readonly dateRangeInvalid = computed(() => {
+    const fromDate = this.fromDate();
+    const toDate = this.toDate();
+
+    return (
+      fromDate !== null &&
+      toDate !== null &&
+      this.formatDateOnly(fromDate) > this.formatDateOnly(toDate)
+    );
+  });
   protected readonly ageRangeInvalid = computed(() => {
     const fromAge = this.fromAge();
     const toAge = this.toAge();
@@ -74,6 +99,8 @@ export class BirthDateFilterMenu {
       );
     }
 
+    if (this.rangeHasValue()) return !this.dateRangeInvalid();
+
     if (this.ageHasValue()) {
       return (
         this.isInRange(this.fromAge(), 1, 200) &&
@@ -92,6 +119,8 @@ export class BirthDateFilterMenu {
     this.day.set(filter?.mode === 'exact' ? filter.date : null);
     this.month.set(filter?.mode === 'exact' ? filter.month : null);
     this.year.set(filter?.mode === 'exact' ? filter.year : null);
+    this.fromDate.set(filter?.mode === 'range' ? filter.fromDate : null);
+    this.toDate.set(filter?.mode === 'range' ? filter.toDate : null);
     this.fromAge.set(filter?.mode === 'age' ? filter.fromAge : null);
     this.toAge.set(filter?.mode === 'age' ? filter.toAge : null);
   });
@@ -106,6 +135,14 @@ export class BirthDateFilterMenu {
 
   protected setYear(value: TpInputValue): void {
     this.year.set(this.toNumber(value));
+  }
+
+  protected setFromDate(value: Date | null): void {
+    this.fromDate.set(value);
+  }
+
+  protected setToDate(value: Date | null): void {
+    this.toDate.set(value);
   }
 
   protected setFromAge(value: TpInputValue): void {
@@ -136,6 +173,23 @@ export class BirthDateFilterMenu {
       return;
     }
 
+    if (this.rangeHasValue()) {
+      const fromDate = this.fromDate();
+      const toDate = this.toDate();
+      const parts = [
+        fromDate === null ? null : `From: ${this.formatDateOnly(fromDate)}`,
+        toDate === null ? null : `To: ${this.formatDateOnly(toDate)}`,
+      ].filter((part): part is string => part !== null);
+
+      this.apply.emit({
+        mode: 'range',
+        fromDate,
+        toDate,
+        displayValue: parts.join(', '),
+      });
+      return;
+    }
+
     if (this.ageHasValue()) {
       const fromAge = this.fromAge();
       const toAge = this.toAge();
@@ -157,6 +211,13 @@ export class BirthDateFilterMenu {
 
   private isInRange(value: number | null, min: number, max: number): boolean {
     return value === null || (Number.isInteger(value) && value >= min && value <= max);
+  }
+
+  private formatDateOnly(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(2).padStart(2, '0');
+    return `${day}-${month}-${year}`;
   }
 
   private isAtLeast(value: number | null, min: number): boolean {

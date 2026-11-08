@@ -16,6 +16,7 @@ export enum Permission {
   UserRead = 'user.read',
   UserCreate = 'user.create',
   UserUpdate = 'user.update',
+  UserExport = 'user.export',
   AdminRead = 'admin.read',
   AdminCreate = 'admin.create',
   AdminUpdate = 'admin.update',

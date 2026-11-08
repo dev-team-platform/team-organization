@@ -18,6 +18,8 @@ export interface UserListItem {
   birthDate: string | null;
   roleName: RoleName | null;
   lastLoginAt: string | null;
+  isPendingDisabled: boolean;
+  isPendingChangedRole: boolean;
 }
 
 export type GetUsersRequest = FilterRequest;
@@ -68,4 +70,37 @@ export interface UpdateUserResponse {
   employeeCode: string;
   gender: UserGender;
   birthDate: string | null;
+}
+
+export interface DisableUserResponse {
+  userId: string;
+  otpExpiresInMinutes: number;
+}
+
+export interface DisableUserConfirmationRequest {
+  otp: string;
+}
+
+export interface DisableUserConfirmationResponse {
+  userId: string;
+  status: UserStatus;
+}
+
+export interface ChangeRoleRequest {
+  roleCode: RoleCode.Admin | RoleCode.Employee;
+}
+
+export interface ChangeRoleResponse {
+  userId: string;
+  roleCode: RoleCode.Admin | RoleCode.Employee;
+  otpExpiresInMinutes: number;
+}
+
+export interface ChangeRoleConfirmationRequest {
+  otp: string;
+}
+
+export interface ChangeRoleConfirmationResponse {
+  userId: string;
+  roleCode: RoleCode.Admin | RoleCode.Employee;
 }

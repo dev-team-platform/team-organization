@@ -42,14 +42,17 @@ import { ChipMapping, FilterCriterionRequest } from '../../../core/models/common
 import { GetUsersRequest } from '../../../core/models/users';
 import { AuthService } from '../../../core/services/auth-service';
 import { ClientCorrelationService } from '../../../core/services/client-correlation-service';
+import { ExportService } from '../../../core/services/export-service';
 import { ToastService } from '../../../core/services/toast-service';
 import { UserService } from '../../../core/services/user-service';
-import { isNotEmpty, resolveErrorMessage } from '../../../core/utils/common';
+import { isNotEmpty, resolveErrorMessage, resolveTimeZoneId } from '../../../core/utils/common';
 import { UserListItem } from './../../../core/models/users';
 import {
   BirthDateFilterMenu,
   type BirthDateFilterValue,
 } from './birth-date-filter-menu/birth-date-filter-menu';
+import { ChangeRoleDialog } from './change-role-dialog/change-role-dialog';
+import { DisableUserDialog } from './disable-user-dialog/disable-user-dialog';
 import { EditUserDialog } from './edit-user-dialog/edit-user-dialog';
 import { NewUserDialog } from './new-user-dialog/new-user-dialog';
 
@@ -74,6 +77,8 @@ type UserFilterField =
     DatePipe,
     NewUserDialog,
     EditUserDialog,
+    DisableUserDialog,
+    ChangeRoleDialog,
     BirthDateFilterMenu,
     MainSkeleton,
   ],
@@ -83,6 +88,7 @@ type UserFilterField =
 })
 export class UsersManagement implements OnInit {
   private readonly userService = inject(UserService);
+  private readonly exportService = inject(ExportService);
   private readonly authService = inject(AuthService);
   private readonly clientCorrelationService = inject(ClientCorrelationService);
   private readonly toastService = inject(ToastService);
@@ -90,6 +96,8 @@ export class UsersManagement implements OnInit {
   private readonly filterChanges = new Subject<void>();
   private readonly userRequests = new Subject<GetUsersRequest>();
   private lastUsersRequest: GetUsersRequest | null = null;
+
+  protected readonly userStatuses = UserStatus;
 
   protected readonly actionColumn: TpTableActionColumnConfig = {
     enabled: true,
@@ -115,9 +123,12 @@ export class UsersManagement implements OnInit {
   readonly birthDateFilterDisplay = computed(() => this.birthDateFilter()?.displayValue ?? '');
   readonly loading = signal(true);
   readonly initialLoading = signal(true);
+  readonly exporting = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly newUserDialogOpen = signal(false);
   readonly editUserDialogOpen = signal(false);
+  readonly disableUserDialogOpen = signal(false);
+  readonly changeRoleDialogOpen = signal(false);
   readonly selectedUser = signal<UserListItem | null>(null);
   readonly statusOptions = [UserStatus.Active, UserStatus.Inactive, UserStatus.Pending];
   readonly genderOptions = [UserGender.Male, UserGender.Female, UserGender.Unknown];
@@ -184,7 +195,7 @@ export class UsersManagement implements OnInit {
     { key: 'roleName', title: 'Role', sortable: true, width: '200px' },
     { key: 'status', title: 'Status', sortable: true, width: '200px' },
     { key: 'gender', title: 'Gender', sortable: true, width: '200px' },
-    { key: 'birthDate', title: 'Birth Date', sortable: true, width: '250px' },
+    { key: 'birthDate', title: 'Birth Date', sortable: true, width: '300px' },
     { key: 'lastLoginAt', title: 'Last Login At', sortable: true, width: '100px' },
   ];
 
@@ -364,6 +375,16 @@ export class UsersManagement implements OnInit {
     this.editUserDialogOpen.set(true);
   }
 
+  openDisableUserDialog(user: UserListItem): void {
+    this.selectedUser.set(user);
+    this.disableUserDialogOpen.set(true);
+  }
+
+  openChangeRoleDialog(user: UserListItem): void {
+    this.selectedUser.set(user);
+    this.changeRoleDialogOpen.set(true);
+  }
+
   handleUserEdited(updatedUser: UserListItem): void {
     this.users.update((users) =>
       users.map((user) => (user.id === updatedUser.id ? updatedUser : user)),
@@ -397,13 +418,51 @@ export class UsersManagement implements OnInit {
     );
   }
 
+  exportUsers(): void {
+    if (this.exporting()) return;
+    const request = this.buildUsersRequest();
+    this.exporting.set(true);
+    const actionId = this.clientCorrelationService.startAction();
+    this.exportService
+      .exportUsers(request)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.exporting.set(false);
+          if (this.clientCorrelationService.getClientActionId() === actionId)
+            this.clientCorrelationService.completeAction();
+        }),
+      )
+      .subscribe({
+        next: ({ fileName }) =>
+          this.toastService.enqueue({
+            type: 'success',
+            content: `Exporting ${fileName} is being prepared. Check notifications for the result.`,
+            width: '500px',
+          }),
+        error: (error: unknown) =>
+          this.toastService.enqueue({
+            type: 'error',
+            content: resolveErrorMessage(error),
+            width: '500px',
+          }),
+      });
+  }
+
   private loadUsers(): void {
+    const request = this.buildUsersRequest();
+    this.lastUsersRequest = request;
+    this.userRequests.next(request);
+  }
+
+  private buildUsersRequest(): GetUsersRequest {
     const filterCriteria = this.buildFilterCriteria();
     const sort = this.activeSort();
     const request: GetUsersRequest = {
       currentPage: this.currentPage(),
       itemsPerPage: this.pageSize(),
       searchGlobalText: this.globalSearch().trim() || undefined,
+      timeZoneId: resolveTimeZoneId(),
       filterCriteria,
       sortFields: [
         {
@@ -413,8 +472,7 @@ export class UsersManagement implements OnInit {
       ],
     };
 
-    this.lastUsersRequest = request;
-    this.userRequests.next(request);
+    return request;
   }
 
   private buildFilterCriteria(): FilterCriterionRequest[] {
@@ -484,6 +542,22 @@ export class UsersManagement implements OnInit {
           operator: FilterOperator.Equals,
           values: [String(value)],
           dateTimeFilterOptions: { offsetMinutes: 0, temporalPartType },
+        });
+      }
+    } else if (birthDateFilter?.mode === 'range') {
+      if (birthDateFilter.fromDate !== null) {
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.GreaterThanOrEquals,
+          values: [this.formatDateOnly(birthDateFilter.fromDate)],
+        });
+      }
+
+      if (birthDateFilter.toDate !== null) {
+        criteria.push({
+          fieldName: 'birthDate',
+          operator: FilterOperator.LessThanOrEquals,
+          values: [this.formatDateOnly(birthDateFilter.toDate)],
         });
       }
     } else if (birthDateFilter?.mode === 'age') {

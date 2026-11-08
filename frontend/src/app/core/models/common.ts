@@ -26,6 +26,7 @@ export interface FilterRequest {
   groupPattern?: string;
   filterCriteria: FilterCriterionRequest[];
   sortFields: SortFieldRequest[];
+  timeZoneId?: string;
 }
 
 /** Response contract shared by APIs that return the backend generic filter. */

@@ -77,7 +77,7 @@
             </p>
 
             <div class="to-bell-notification-menu__metadata">
-              <span>Created at: {{ notification.createdAt | date: 'dd-MMM-yyyy HH:mm:ss' }}</span>
+              <span>Sent at: {{ notification.sentAt | date: 'dd-MMM-yyyy HH:mm:ss' }}</span>
               @if (notification.isRead && notification.readAt) {
                 <span>Read at: {{ notification.readAt | date: 'dd-MMM-yyyy HH:mm:ss' }}</span>
               }
@@ -113,5 +113,10 @@
 </tp-popover-menu>
 
 <ng-template #defaultContentTemplate let-notification>
-  {{ interpolateContentTemplate(notification) }}
+  @if (exportFileId(notification)) {
+    {{ interpolateContentTemplate(notification).replace('Click here to download.', '') }}
+    <a href="#" (click)="downloadExport($event, notification)" (keydown)="$event.stopPropagation()">Click here to download.</a>
+  } @else {
+    {{ interpolateContentTemplate(notification) }}
+  }
 </ng-template>

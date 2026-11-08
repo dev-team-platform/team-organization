@@ -2,15 +2,11 @@
   [(open)]="open"
   ariaLabel="Edit user"
   width="min(92vw, 860px)"
-  [title]="titleTemplate"
+  title="Edit User"
   [bodyTemplate]="bodyTemplate"
   [footerTemplate]="footerTemplate"
 >
 </app-title-dialog>
-
-<ng-template #titleTemplate>
-  <span class="to-edit-user-dialog__title">Edit User</span>
-</ng-template>
 
 <ng-template #bodyTemplate>
   <div class="to-edit-user-dialog__form-grid">
@@ -66,11 +62,7 @@
 
       <div class="to-edit-user-dialog__email-field">
         <div class="to-edit-user-dialog__email-input">
-          <tp-input
-            title="Email"
-            [formField]="userForm.email"
-            width="100%"
-          ></tp-input>
+          <tp-input title="Email" [formField]="userForm.email" width="100%"></tp-input>
         </div>
         <span class="to-edit-user-dialog__email-domain">&#64;{{ emailDomain }}</span>
       </div>
@@ -83,7 +75,6 @@
         [options]="roleOptions"
         [formField]="userForm.roleName"
       ></tp-input-singleselect>
-
     </div>
   </div>
 </ng-template>
@@ -94,16 +85,18 @@
       color="blue"
       variant="filled"
       height="36px"
+      width="84px"
       [disabled]="isSaving() || !userForm().valid()"
       (onClick)="saveChanges()"
     >
-      Save Changes
+      Save
     </tp-button>
 
     <tp-button
       color="gray"
       variant="outlined"
       height="36px"
+      width="84px"
       [disabled]="isSaving()"
       (onClick)="cancel()"
     >

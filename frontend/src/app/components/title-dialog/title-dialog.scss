@@ -19,7 +19,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--tp-space-2);
-  padding: var(--tp-space-1);
+  padding: var(--tp-space-1) var(--tp-space-2);
 }
 
 .to-title-dialog__title {
@@ -27,6 +27,7 @@
   margin: 0;
   color: var(--tp-color-text-primary);
   font: var(--mat-sys-title-large);
+  font-weight: 700;
 }
 
 .to-title-dialog__close {

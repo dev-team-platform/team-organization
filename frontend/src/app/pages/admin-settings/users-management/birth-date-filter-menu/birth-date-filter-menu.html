@@ -40,6 +40,36 @@
 
   <section
     class="to-birth-date-filter-menu__section"
+    [class.to-birth-date-filter-menu__section--disabled]="rangeDisabled()"
+    aria-labelledby="birth-date-filter-range-title"
+  >
+    <h3 id="birth-date-filter-range-title">Filter by date range</h3>
+    <div class="to-birth-date-filter-menu__range-fields">
+      <tp-input-date-picker
+        title="From"
+        dateFormat="dd-MMM-yyyy"
+        [disabled]="rangeDisabled()"
+        [value]="fromDate()"
+        (valueChange)="setFromDate($event)"
+      ></tp-input-date-picker>
+      <span aria-hidden="true">-</span>
+      <tp-input-date-picker
+        title="To"
+        dateFormat="dd-MMM-yyyy"
+        [disabled]="rangeDisabled()"
+        [value]="toDate()"
+        (valueChange)="setToDate($event)"
+      ></tp-input-date-picker>
+    </div>
+    @if (dateRangeInvalid()) {
+      <p class="to-birth-date-filter-menu__validation-error" role="alert">
+        From date must be on or before To date
+      </p>
+    }
+  </section>
+
+  <section
+    class="to-birth-date-filter-menu__section"
     [class.to-birth-date-filter-menu__section--disabled]="ageDisabled()"
     aria-labelledby="birth-date-filter-age-title"
   >
@@ -69,7 +99,7 @@
     </div>
     @if (ageRangeInvalid()) {
       <p class="to-birth-date-filter-menu__validation-error" role="alert">
-        From must be less than or equal To
+        From age must be less than or equal to To age
       </p>
     }
   </section>

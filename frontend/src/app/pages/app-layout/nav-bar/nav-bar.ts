@@ -16,6 +16,7 @@ import { finalize } from 'rxjs';
 import { BellNotificationItem, NotificationItem } from '../../../core/models/notifications';
 import { ClientCorrelationService } from '../../../core/services/client-correlation-service';
 import { NotificationService } from '../../../core/services/notification-service';
+import { mergeNotifications } from '../../../core/utils/notifications';
 import { BellNotificationMenu } from './bell-notification-menu/bell-notification-menu';
 import { UserAccountMenu } from './user-account-menu/user-account-menu';
 
@@ -61,6 +62,8 @@ export class NavBar implements OnInit {
   private activeNotificationRequests = 0;
   private pendingMarkReadTimer: ReturnType<typeof setTimeout> | null = null;
   private successfulMarkAllReadCount = 0;
+  private notificationRevision = 0;
+  private readonly realtimeRevisions = new Map<string, number>();
 
   ngOnInit(): void {
     this.notificationService.bellNotifications$
@@ -129,6 +132,7 @@ export class NavBar implements OnInit {
 
     this.clearPendingMarkReadTimer();
     this.isMarkingAllNotificationsRead.set(true);
+    const requestRevision = this.notificationRevision;
 
     this.clientCorrelationService.startAction();
     this.notificationService
@@ -146,11 +150,13 @@ export class NavBar implements OnInit {
       .subscribe({
         next: () => {
           this.successfulMarkAllReadCount++;
-          this.pendingMarkReadIds.clear();
+          for (const id of this.pendingMarkReadIds) {
+            if ((this.realtimeRevisions.get(id) ?? 0) <= requestRevision) this.pendingMarkReadIds.delete(id);
+          }
           const readAt = new Date().toISOString();
           this.notifications.update((notifications) =>
             notifications.map((notification) =>
-              notification.isRead === true
+              notification.isRead === true || (this.realtimeRevisions.get(notification.notificationId) ?? 0) > requestRevision
                 ? notification
                 : { ...notification, isRead: true, readAt },
             ),
@@ -169,23 +175,21 @@ export class NavBar implements OnInit {
   }
 
   private addNotification(notification: BellNotificationItem): void {
+    const current = this.notifications().find((item) => item.notificationId === notification.notificationId);
+    if (current && Date.parse(notification.sentAt) < Date.parse(current.sentAt)) return;
+    if (current && notification.sentAt === current.sentAt && current.isRead && !notification.isRead) return;
+    this.realtimeRevisions.set(notification.notificationId, ++this.notificationRevision);
+    this.pendingMarkReadIds.delete(notification.notificationId);
     this.notifications.update((notifications) => {
-      const existing = notifications.find(
-        (item) => item.notificationId === notification.notificationId,
-      );
-      const nextNotification =
-        existing?.isRead === true && notification.isRead !== true
-          ? { ...notification, isRead: true, readAt: existing.readAt }
-          : notification;
-
       return [
-        nextNotification,
+        notification,
         ...notifications.filter((item) => item.notificationId !== notification.notificationId),
       ];
     });
   }
 
   loadNotifications(isUnreadOnly = this.isUnreadOnly()): void {
+    const requestRevision = this.notificationRevision;
     const requestActionId = this.clientCorrelationService.startAction();
     this.activeNotificationRequests++;
     this.isLoadingNotifications.set(true);
@@ -207,7 +211,10 @@ export class NavBar implements OnInit {
           if (isUnreadOnly !== this.isUnreadOnly()) return;
 
           if (isUnreadOnly) {
-            this.notifications.set(notifications);
+            const recent = this.notifications().filter(
+              (item) => (this.realtimeRevisions.get(item.notificationId) ?? 0) > requestRevision,
+            );
+            this.notifications.set(mergeNotifications(notifications, recent));
           } else {
             this.mergeNotifications(notifications);
           }
@@ -225,6 +232,7 @@ export class NavBar implements OnInit {
     this.pendingMarkReadIds.clear();
     notificationIds.forEach((notificationId) => this.inFlightMarkReadIds.add(notificationId));
     const notificationIdSet = new Set(notificationIds);
+    const requestRevision = this.notificationRevision;
     const markAllReadCount = this.successfulMarkAllReadCount;
 
     const actionId = this.clientCorrelationService.startAction();
@@ -247,6 +255,7 @@ export class NavBar implements OnInit {
             this.notifications.update((notifications) =>
               notifications.map((notification) =>
                 notificationIdSet.has(notification.notificationId)
+                  && (this.realtimeRevisions.get(notification.notificationId) ?? 0) <= requestRevision
                   ? { ...notification, isRead: false, readAt: null }
                   : notification,
               ),
@@ -273,15 +282,6 @@ export class NavBar implements OnInit {
   }
 
   private mergeNotifications(incoming: NotificationItem[]): void {
-    this.notifications.update((current) => {
-      const notificationsById = new Map<string, NotificationItem>();
-      for (const notification of [...incoming, ...current]) {
-        notificationsById.set(notification.notificationId, notification);
-      }
-
-      return [...notificationsById.values()].sort(
-        (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
-      );
-    });
+    this.notifications.update((current) => mergeNotifications(incoming, current));
   }
 }
