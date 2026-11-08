@@ -1,0 +1,30 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.to-app-shell {
+  min-height: 100vh;
+}
+
+.to-screen-size-message {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  color: var(--tp-color-text-primary);
+  font-size: var(--tp-font-size-default);
+  line-height: 1.5;
+}
+
+@media (max-width: 1023.98px) {
+  .to-app-shell {
+    display: none;
+  }
+
+  .to-screen-size-message {
+    display: block;
+  }
+}

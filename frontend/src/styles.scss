@@ -1,1 +1,107 @@
-/* You can add global styles to this file, and also import other style files */
+// Include theming for Angular Material with `mat.theme()`.
+// This Sass mixin defines CSS variables used by Angular Material components
+// according to the Material 3 design specification.
+
+@use '@angular/material' as mat;
+@use '@team-platform/ui/styles' as tp;
+@use 'material-symbols/outlined.css';
+
+@font-face {
+  font-family: 'Roboto Flex';
+  src: url('/fonts/roboto/Roboto-Flex.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  @include tp.tokens;
+  @include tp.theme;
+  @include tp.base;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  color-scheme: light;
+
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font-family: var(--mat-sys-body-medium-font);
+  font-size: var(--tp-text-md);
+
+  margin: 0;
+  min-height: 100%;
+}
+
+// Scope Material internals to this stepper, including templates rendered by TitleDialog.
+mat-horizontal-stepper.to-change-role-dialog__stepper {
+  @include mat.stepper-overrides(
+    (
+      header-height: var(--to-change-role-control-height, 36px),
+      header-hover-state-layer-color: transparent,
+      header-focus-state-layer-color: transparent,
+    )
+  );
+
+  box-sizing: border-box;
+  height: var(--to-change-role-control-height, 36px);
+  min-height: var(--to-change-role-control-height, 36px);
+  max-height: var(--to-change-role-control-height, 36px);
+  padding: 0;
+  margin: 0;
+
+  .mat-horizontal-stepper-header-container,
+  .mat-horizontal-stepper-header-wrapper {
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    align-items: center;
+  }
+
+  .mat-horizontal-stepper-header {
+    box-sizing: border-box;
+    height: var(--to-change-role-control-height, 36px);
+    min-height: 0;
+    max-height: var(--to-change-role-control-height, 36px);
+    padding: 0 var(--tp-space-2);
+  }
+
+  .mat-stepper-horizontal-line {
+    min-width: 24px;
+    margin: 0;
+  }
+
+  .mat-step-header,
+  .mat-step-header:hover,
+  .mat-step-header:focus-visible,
+  .mat-step-header.cdk-keyboard-focused,
+  .mat-step-header.cdk-program-focused {
+    background: transparent;
+    border-radius: 0;
+    outline: none;
+  }
+
+  .mat-step-header-ripple,
+  .mat-horizontal-content-container {
+    display: none;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .mat-step-header:focus-visible .mat-step-label {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .cdk-overlay-container {
+    display: none;
+  }
+}

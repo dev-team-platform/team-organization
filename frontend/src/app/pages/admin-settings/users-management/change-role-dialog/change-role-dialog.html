@@ -1,0 +1,126 @@
+@if (stage() !== 'closed') {
+  <app-title-dialog
+    [(open)]="open"
+    ariaLabel="Change user role"
+    width="min(92vw, 520px)"
+    [title]="dialogTitle()"
+    [bodyTemplate]="bodyTemplate"
+    [footerTemplate]="footerTemplate"
+  ></app-title-dialog>
+}
+
+@if (warningOpen()) {
+  <tp-confirmation-dialog
+    [(open)]="warningOpen"
+    type="warning"
+    ariaLabel="Confirm user role change"
+    confirmTitle="Yes, confirm"
+    cancelTitle="No, cancel"
+    width="550px"
+    (onConfirm)="requestOtp()"
+  >
+    <div class="to-change-role-dialog__warning">
+      <h2>Change Role?</h2>
+      <p>Are you sure to change role of this user?</p>
+    </div>
+  </tp-confirmation-dialog>
+}
+
+<ng-template #bodyTemplate>
+  @if (stepIndex() === 0) {
+    @if (stage() === 'requesting') {
+      <p class="to-change-role-dialog__message">Sending a confirmation code to your email…</p>
+    } @else {
+      <p class="to-change-role-dialog__message">
+        Choose the role for <strong>{{ user()?.displayName }}</strong
+        >.
+      </p>
+      <tp-input-singleselect
+        title="Role"
+        ariaLabel="Choose role"
+        placeholder="Select a role"
+        [options]="roleOptions"
+        [formField]="roleForm.roleName"
+      ></tp-input-singleselect>
+      @if (selectedRoleIsCurrent()) {
+        <p class="to-change-role-dialog__hint">This user already has the selected role.</p>
+      }
+    }
+  } @else {
+    <p class="to-change-role-dialog__message">
+      Enter the one-time password sent to your email to change
+      <strong>{{ user()?.displayName }}</strong
+      >'s role.
+    </p>
+    <tp-input
+      title="OTP"
+      aria-label="OTP"
+      placeholder="Enter OTP"
+      autocomplete="one-time-code"
+      [formField]="otpForm.otp"
+    ></tp-input>
+  }
+</ng-template>
+
+<ng-template #footerTemplate>
+  <div class="to-change-role-dialog__footer">
+    <mat-horizontal-stepper
+      class="to-change-role-dialog__stepper"
+      [linear]="true"
+      [disableRipple]="true"
+      [selectedIndex]="stepIndex()"
+      (selectionChange)="onStepSelectionChange($event)"
+    >
+      <ng-template matStepperIcon="done">
+        <span class="cdk-visually-hidden">Completed</span>
+        <span class="material-symbols-outlined to-change-role-dialog__done-icon" aria-hidden="true">check</span>
+      </ng-template>
+      <mat-step [stepControl]="requestStepGuard" [editable]="false">
+        <ng-template matStepLabel>Choose Role</ng-template>
+        <!-- <ng-template matStepContent><span></span></ng-template> -->
+      </mat-step>
+      <mat-step [editable]="false">
+        <ng-template matStepLabel>Confirm</ng-template>
+        <!-- <ng-template matStepContent><span></span></ng-template> -->
+      </mat-step>
+    </mat-horizontal-stepper>
+
+    <div class="to-change-role-dialog__footer-actions">
+      @if (stepIndex() === 0) {
+        <tp-button
+          color="blue"
+          variant="filled"
+          height="36px"
+          width="90px"
+          [disabled]="
+            isBusy() || !roleForm().valid() || selectedRoleIsCurrent() || stage() === 'requesting'
+          "
+          (onClick)="showChangeRoleWarning()"
+        >
+          {{ stage() === 'requesting' ? 'Sending…' : 'Next' }}
+        </tp-button>
+      } @else {
+        <tp-button
+          color="blue"
+          variant="filled"
+          height="36px"
+          width="90px"
+          [disabled]="isBusy() || !otpForm().valid()"
+          (onClick)="confirmChangeRole()"
+        >
+          Confirm
+        </tp-button>
+      }
+      <tp-button
+        color="gray"
+        variant="outlined"
+        height="36px"
+        width="90px"
+        [disabled]="isBusy()"
+        (onClick)="cancel()"
+      >
+        Cancel
+      </tp-button>
+    </div>
+  </div>
+</ng-template>

@@ -1,0 +1,25 @@
+<section class="to-not-found" aria-labelledby="not-found-title">
+  <div class="to-not-found__content">
+    <div class="to-not-found__summary">
+      <span class="tp-icon to-not-found__icon" aria-hidden="true">search_off</span>
+    </div>
+
+    <h1 id="not-found-title" class="to-not-found__title">Page not found</h1>
+
+    <p class="to-not-found__description">
+      The page you requested is unavailable or has moved to another location.
+    </p>
+
+    <tp-button
+      class="to-not-found__home-button"
+      color="blue"
+      variant="tonal"
+      width="150px"
+      height="32px"
+      (onClick)="goHome()"
+    >
+      <span class="tp-icon material-symbols-outlined">home</span>
+      <span>Return home</span>
+    </tp-button>
+  </div>
+</section>

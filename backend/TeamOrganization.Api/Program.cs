@@ -1,68 +1,37 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.OpenApi;
 using Serilog;
+using TeamOrganization.Api.Extensions;
+using TeamOrganization.Api.Middlewares;
+using TeamOrganization.Application;
 using TeamOrganization.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var isDeployedEnvironment =
+    builder.Environment.IsEnvironment("Dev")
+    || builder.Environment.IsEnvironment("Test")
+    || builder.Environment.IsStaging()
+    || builder.Environment.IsProduction();
+
+var exposeApiDocs =
+    builder.Environment.IsDevelopment()
+    || builder.Environment.IsEnvironment("Dev")
+    || builder.Environment.IsEnvironment("Test");
+
+builder.Services.AddAppOptions(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
-
+builder.Services.AddInternalJwtAuthentication(builder.Configuration);
+builder.Services.AddKeycloakAdminApiAuthentication(builder.Configuration);
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
-
-builder.Services.AddOpenApi();
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-
-    // Use 1 in 4 ways to set version
-    options.ApiVersionReader = ApiVersionReader.Combine(
-        // 1. Query string
-        // GET /api/products?api-version=1.0
-        new QueryStringApiVersionReader("api-version"),
-
-        // 2. Header
-        // GET /api/products
-        // Header: X-Version: 1.0
-        new HeaderApiVersionReader("X-Version"),
-
-        // 3. Media type (content negotiation)
-        // GET /api/products
-        // Header: Accept: application/json;ver=1.0
-        new MediaTypeApiVersionReader("ver"),
-
-        // 4. URL segment
-        // GET /api/v1/products
-        new UrlSegmentApiVersionReader()
-    );
-});
-
-builder.Services.AddVersionedApiExplorer(options =>
-{
-    options.GroupNameFormat = "'v'VVV";
-    options.SubstituteApiVersionInUrl = true;
-});
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("DefaultCors", policy =>
-    {
-        policy
-            .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-});
+builder.Services.AddApiVersioningConfiguration();
 
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Simple E-Commerce API",
+        Title = "Team Organization API",
         Version = "v1"
     });
 });
@@ -76,15 +45,21 @@ builder.Host.UseSerilog((context, services, configuration) =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseSerilogRequestLogging();
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+if (isDeployedEnvironment)
 {
-    app.MapOpenApi();
+    app.UseHttpsRedirection();
+}
+
+if (exposeApiDocs)
+{
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseSerilogRequestLogging();
+app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -92,3 +67,4 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+

@@ -1,0 +1,75 @@
+@if (stage() === 'warning') {
+  <tp-confirmation-dialog
+    [(open)]="open"
+    type="warning"
+    ariaLabel="Confirm disable user"
+    confirmTitle="Yes, confirm"
+    cancelTitle="No, cancel"
+    width="550px"
+    (onConfirm)="requestOtp()"
+    (onCancel)="cancel()"
+  >
+    <div class="to-disable-user-dialog__warning">
+      <h2>Disable User?</h2>
+      <p>
+        Are you sure to disable this user? This action will deactivate account and make this user
+        cannot login to all applications in platform.
+      </p>
+    </div>
+  </tp-confirmation-dialog>
+}
+
+@if (stage() === 'requesting' || stage() === 'otp') {
+  <app-title-dialog
+    [(open)]="open"
+    ariaLabel="Disable user confirmation"
+    width="min(92vw, 480px)"
+    title="Disable User Confirmation"
+    [bodyTemplate]="bodyTemplate"
+    [footerTemplate]="footerTemplate"
+  ></app-title-dialog>
+}
+
+<ng-template #bodyTemplate>
+  @if (stage() === 'requesting') {
+    <p class="to-disable-user-dialog__sending">Sending a confirmation code to your email…</p>
+  } @else {
+    <p class="to-disable-user-dialog__instructions">
+      Enter the one-time password sent to your email to disable
+      <strong>{{ user()?.displayName }}</strong
+      >.
+    </p>
+    <tp-input
+      title="OTP"
+      aria-label="OTP"
+      placeholder="Enter OTP"
+      autocomplete="one-time-code"
+      [formField]="otpForm.otp"
+    ></tp-input>
+  }
+</ng-template>
+
+<ng-template #footerTemplate>
+  <div class="to-disable-user-dialog__footer-actions">
+    @if (stage() === 'otp') {
+      <tp-button
+        color="blue"
+        variant="filled"
+        height="36px"
+        [disabled]="isBusy() || !otpForm().valid()"
+        (onClick)="confirmDisable()"
+      >
+        Confirm
+      </tp-button>
+    }
+    <tp-button
+      color="gray"
+      variant="outlined"
+      height="36px"
+      [disabled]="isBusy()"
+      (onClick)="cancel()"
+    >
+      Cancel
+    </tp-button>
+  </div>
+</ng-template>

@@ -1,0 +1,107 @@
+using System.Text.Json;
+using TeamOrganization.Api.Dtos.Common;
+using TeamOrganization.Domain.Exceptions;
+using TeamOrganization.Domain.Utils;
+
+namespace TeamOrganization.Api.Middlewares;
+
+public class GlobalExceptionHandlerMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly Serilog.ILogger _logger;
+
+    public GlobalExceptionHandlerMiddleware(RequestDelegate next, Serilog.ILogger logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception exception) when (!context.Response.HasStarted)
+        {
+            var (statusCode, response) = CreateResponse(exception);
+
+            if (statusCode >= StatusCodes.Status500InternalServerError)
+            {
+                _logger.Error(
+                    exception,
+                    "Unhandled exception while processing [{RequestMethod}] {RequestPath}",
+                    context.Request.Method,
+                    context.Request.Path);
+            }
+            else
+            {
+                _logger.Warning(
+                    exception,
+                    "Request failed with status code {StatusCode}: [{RequestMethod}] {RequestPath}",
+                    statusCode,
+                    context.Request.Method,
+                    context.Request.Path);
+            }
+
+            context.Response.Clear();
+            context.Response.StatusCode = statusCode;
+            context.Response.ContentType = "application/json";
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonUtils.WebSerializerOptions));
+        }
+    }
+
+    private static (int StatusCode, ErrorResponse Response) CreateResponse(Exception exception)
+    {
+        return exception switch
+        {
+            UnauthorizedException unauthorized =>
+                (StatusCodes.Status401Unauthorized,
+                new ErrorResponse
+                {
+                    Message = unauthorized.Message,
+                    Details = unauthorized.Details
+                }),
+
+            ForbiddenException forbidden =>
+                (StatusCodes.Status403Forbidden,
+                new ErrorResponse
+                {
+                    Message = forbidden.Message,
+                    Details = forbidden.Details
+                }),
+
+            NotFoundException notFound =>
+                (StatusCodes.Status404NotFound,
+                new ErrorResponse
+                {
+                    Message = notFound.Message,
+                    Details = notFound.Details
+                }),
+
+            ConflictException conflict =>
+                (StatusCodes.Status409Conflict,
+                new ErrorResponse
+                {
+                    Message = conflict.Message,
+                    Details = conflict.Details
+                }),
+
+            UnprocessableEntityException unprocessable =>
+                (StatusCodes.Status422UnprocessableEntity,
+                new ErrorResponse
+                {
+                    Message = unprocessable.Message,
+                    Details = unprocessable.Details
+                }),
+
+            _ =>
+                (StatusCodes.Status500InternalServerError,
+                new ErrorResponse
+                {
+                    Message = "Something went wrong."
+                })
+        };
+    }
+}
